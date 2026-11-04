@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./web-BR5GMR0p.js","./index-DFgVCsJr.js","./index-CproOzi1.css"])))=>i.map(i=>d[i]);
+import{r as e,t}from"./index-DFgVCsJr.js";var n=e(`Preferences`,{web:()=>t(()=>import(`./web-BR5GMR0p.js`).then(e=>new e.PreferencesWeb),__vite__mapDeps([0,1,2]),import.meta.url)});export{n as Preferences};
