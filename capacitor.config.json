@@ -1,0 +1,13 @@
+{
+  "appId": "com.gorillastocks.lostpethero",
+  "appName": "Lost Pet Hero",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#143524",
+    "scheme": "LostPetHero"
+  },
+  "plugins": {
+    "Preferences": { "group": "LostPetHeroSaves" }
+  }
+}
