@@ -41,9 +41,9 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
   const bob = Math.sin(time / 380) * 2;
 
   const sky = ctx.createLinearGradient(0, 0, 0, cssH);
-  sky.addColorStop(0, '#8ec8e6');
-  sky.addColorStop(0.35, '#b7d98a');
-  sky.addColorStop(1, '#6e9a4e');
+  sky.addColorStop(0, '#7FD3FF');
+  sky.addColorStop(0.35, '#8EE07A');
+  sky.addColorStop(1, '#62c85c');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, cssW, cssH);
 

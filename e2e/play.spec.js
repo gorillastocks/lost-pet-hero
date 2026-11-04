@@ -1,18 +1,36 @@
 import { test, expect } from '@playwright/test';
-import { answerGate, start, tapTile, timeATreat, trackErrors } from './helpers.js';
+import { answerGate, dismissClue, start, tapTile, timeATreat, trackErrors } from './helpers.js';
 
 test('title, settings, and three picture jobs', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('./?debug=1&instant=1');
   await expect(page.locator('h1')).toHaveText('Lost Pet Hero');
+  await expect(page.locator('#btn-tap-play')).toBeVisible();
+  await page.locator('#btn-tap-play').click({ force: true });
   await page.click('#diff-easy');
   await page.click('#diff-normal');
   await expect(page.locator('#diff-blurb')).toContainText('favourite');
   await page.click('#btn-settings');
+  await answerGate(page);
   await page.click('#set-easy');
   await expect(page.locator('#btn-dev-unlock')).toHaveCount(0);
   await page.click('#btn-settings-back');
   await page.click('#btn-play');
+  const fit = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('button.job')];
+    return cards.map((el, i, arr) => {
+      const c = el.getBoundingClientRect();
+      const title = el.querySelector('.jobtitle').getBoundingClientRect();
+      const desc = el.querySelector('.jobdesc').getBoundingClientRect();
+      const inside = (r) => r.top >= c.top - 1 && r.bottom <= c.bottom + 1 && r.left >= c.left - 1 && r.right <= c.right + 1;
+      const prev = i ? arr[i - 1].getBoundingClientRect() : null;
+      return { id: el.id, inside: inside(title) && inside(desc), gap: prev ? c.top - prev.bottom : 8, h: c.height };
+    });
+  });
+  for (const card of fit) {
+    expect(card.inside, `${card.id} text inside card`).toBe(true);
+    expect(card.gap, `${card.id} overlaps the card above`).toBeGreaterThan(0);
+  }
   for (const id of ['pip', 'bramble', 'luma']) {
     const card = page.locator(`#job-${id}`);
     await card.scrollIntoViewIfNeeded();
@@ -37,6 +55,7 @@ test('easy rescue: clues, simple puzzles, one timing tap, reunion', async ({ pag
   await expect(page.locator('#world')).toBeVisible();
 
   await tapTile(page, 5, 12);
+  await dismissClue(page);
   await page.click('#act-climb');
   await expect(page.locator('#status')).toContainText(/picture|stone/i);
 
@@ -56,6 +75,8 @@ test('easy rescue: clues, simple puzzles, one timing tap, reunion', async ({ pag
   await page.click('#fern-2');
 
   await tapTile(page, 5, 1);
+  await dismissClue(page);
+  if (!(await page.locator('#hearts').count())) await page.locator('#act-calm-pet').click();
   await expect(page.locator('#hearts')).toHaveAttribute('data-filled', '1');
   await expect(page.locator('#hearts')).toHaveAttribute('data-needed', '2');
   await expect(page.locator('#treat-fish')).toHaveClass(/glow/);
@@ -80,6 +101,7 @@ test('easy shows an idle hint arrow; normal does not', async ({ page }) => {
   await page.goto('./?debug=1&instant=1');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
+  await page.locator('#btn-tap-play').click({ force: true });
   await page.click('#diff-normal');
   await page.click('#btn-play');
   await page.click('#job-bramble');
@@ -93,7 +115,11 @@ test('a wild pet can be calmed into the sanctuary', async ({ page }) => {
   await page.click('#job-pip');
   await page.click('#btn-enter');
   await tapTile(page, 3, 14);
+  await dismissClue(page);
   await tapTile(page, 1, 14);
+  await dismissClue(page);
+  const hello = page.locator('#act-calm-wild');
+  if (await hello.count()) await hello.click();
   for (let i = 0; i < 6; i++) {
     if (await page.locator('#sanctuary').count()) break;
     const again = page.locator('#act-calm-wild');
@@ -109,6 +135,7 @@ test('a wild pet can be calmed into the sanctuary', async ({ page }) => {
 
 test('after two rescues a grown-up sees the $9.99 card and nothing is unlocked', async ({ page }) => {
   await page.goto('./?debug=1&instant=1');
+  await page.locator('#btn-tap-play').click({ force: true });
   await page.evaluate(() => {
     const state = window.__lph.fresh();
     state.rescues = 2;

@@ -9,11 +9,18 @@ export function trackErrors(page) {
 
 export async function start(page, difficulty = 'easy') {
   await page.goto(`./?debug=1&instant=1`);
+  await page.locator('#btn-tap-play').click({ force: true });
   await page.click(`#diff-${difficulty}`);
   await page.click('#btn-play');
 }
 
+export async function dismissClue(page) {
+  const ok = page.locator('#clue-ok');
+  if (await ok.isVisible().catch(() => false)) await ok.click();
+}
+
 export async function tapTile(page, x, y) {
+  await dismissClue(page);
   const center = await page.evaluate(({ x, y }) => {
     const canvas = document.querySelector('#world');
     const p = window.__lph.tileCenter(x, y);

@@ -1,6 +1,6 @@
 // Original drawings made of simple shapes. No outside art files.
 
-export const INK = '#1c2a22';
+export const INK = '#4A3B6B';
 
 function rr(ctx, x, y, w, h, r) {
   const rad = Math.min(r, w / 2, h / 2);
@@ -14,18 +14,37 @@ function rr(ctx, x, y, w, h, r) {
 }
 
 function eye(ctx, x, y, s, mood) {
-  ctx.fillStyle = INK;
+  const r = Math.max(2.2, s * 0.075);
+  ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.arc(x, y, Math.max(1.5, s * 0.045), 0, Math.PI * 2);
+  ctx.ellipse(x, y, r * 1.15, r * 1.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1.5, s * 0.03);
+  ctx.stroke();
+  ctx.fillStyle = mood === 'happy' ? '#4A3B6B' : '#3a2d55';
+  ctx.beginPath();
+  ctx.arc(x + r * 0.15, y + r * 0.15, r * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x - r * 0.15, y - r * 0.25, r * 0.28, 0, Math.PI * 2);
   ctx.fill();
   if (mood === 'scared') {
     ctx.strokeStyle = INK;
-    ctx.lineWidth = Math.max(1, s * 0.03);
     ctx.beginPath();
-    ctx.moveTo(x - s * 0.06, y - s * 0.05);
-    ctx.lineTo(x + s * 0.05, y - s * 0.09);
+    ctx.moveTo(x - r, y - r * 1.1);
+    ctx.lineTo(x + r * 0.8, y - r * 1.5);
     ctx.stroke();
   }
+}
+
+function blush(ctx, x, y, s) {
+  ctx.fillStyle = 'rgba(255,143,199,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(x - s * 0.16, y + s * 0.08, s * 0.07, s * 0.04, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + s * 0.16, y + s * 0.08, s * 0.07, s * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function mouth(ctx, x, y, s, mood) {
@@ -217,6 +236,7 @@ export function drawAnimal(ctx, kind, x, y, s, mood = 'scared') {
     eye(ctx, x + s * 0.06, y + s * 0.04, s, mood);
     return;
   }
+  blush(ctx, x, y, s);
   eye(ctx, x - s * 0.07, y + s * 0.02, s, mood);
   eye(ctx, x + s * 0.07, y + s * 0.02, s, mood);
   ctx.fillStyle = '#e36b4f';
@@ -344,6 +364,40 @@ export function drawSymbol(ctx, id, x, y, s) {
     ctx.beginPath();
     ctx.arc(s * 0.1, -s * 0.04, s * 0.22, 0, Math.PI * 2);
     ctx.fill();
+  } else if (id === 'log') {
+    ctx.fillStyle = '#c9854a';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = s * 0.06;
+    ctx.beginPath();
+    ctx.roundRect?.(-s * 0.4, -s * 0.12, s * 0.8, s * 0.28, s * 0.12);
+    if (!ctx.roundRect) ctx.rect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.28);
+    ctx.fill(); ctx.stroke();
+  } else if (id === 'up') {
+    ctx.strokeStyle = '#FF8FC7';
+    ctx.fillStyle = '#FF8FC7';
+    ctx.lineWidth = s * 0.08;
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.28);
+    ctx.lineTo(0, -s * 0.2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.34);
+    ctx.lineTo(-s * 0.18, -s * 0.05);
+    ctx.lineTo(s * 0.18, -s * 0.05);
+    ctx.fill();
+  } else if (id === 'sun') {
+    ctx.fillStyle = '#FFD84D';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#FFA94D';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * s * 0.24, Math.sin(a) * s * 0.24);
+      ctx.lineTo(Math.cos(a) * s * 0.38, Math.sin(a) * s * 0.38);
+      ctx.stroke();
+    }
   } else if (id === 'star') {
     ctx.fillStyle = '#f2b544';
     ctx.beginPath();

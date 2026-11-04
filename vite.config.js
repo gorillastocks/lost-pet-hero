@@ -51,7 +51,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((r) => {
-    if (r.ok && path.includes('/assets/')) {
+    if (r.ok && (path.includes('/assets/') || path.includes('/voice/') || path.includes('/sfx/') || path.includes('/music/'))) {
       const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp));
     }
     return r;

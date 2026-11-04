@@ -1,8 +1,14 @@
+import '@fontsource/fredoka/700.css';
+import '@fontsource/baloo-2/700.css';
+import '@fontsource/nunito/600.css';
+import '@fontsource/nunito/800.css';
 import './style.css';
 import { Capacitor } from '@capacitor/core';
 import { createApp } from './ui.js';
 import { defaultStore, initStorage } from './storage.js';
+import { audio } from './audio.js';
 
+audio.install();
 const root = document.getElementById('app');
 const app = createApp(root, defaultStore());
 
