@@ -55,6 +55,8 @@ button { cursor: pointer; }
   padding-bottom: 8px;
 }
 .sheet { justify-content: center; text-align: center; align-items: stretch; }
+#gate { padding-top: max(28px, env(safe-area-inset-top)); }
+#gate h2 { line-height: 1.15; }
 
 h1 { font-size: 40px; line-height: 0.95; margin: 0; }
 h2 { font-size: 30px; margin: 0; font-family: "Fredoka", "Nunito", sans-serif; }

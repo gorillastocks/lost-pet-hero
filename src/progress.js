@@ -29,15 +29,3 @@ export function canStartRescue(state, unlocked) {
 export function devUnlockAvailable() {
   return import.meta.env.DEV === true;
 }
-
-export function makeQuestion(rng = Math.random) {
-  const a = 2 + Math.floor(rng() * 5);
-  const b = 2 + Math.floor(rng() * 5);
-  return { a, b, answer: a + b, prompt: `What is ${a} + ${b}?` };
-}
-
-export function checkAnswer(question, value) {
-  if (!question) return false;
-  const n = Number(String(value).trim());
-  return Number.isFinite(n) && n === question.answer;
-}

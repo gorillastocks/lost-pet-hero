@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canStartRescue, checkAnswer, isFullGameUnlocked, makeQuestion, rescuesLeft, setFullGameUnlocked } from '../src/progress.js';
+import { canStartRescue, isFullGameUnlocked, rescuesLeft, setFullGameUnlocked } from '../src/progress.js';
 import { memoryStore } from '../src/storage.js';
 
 describe('full game gate', () => {
@@ -22,12 +22,4 @@ describe('full game gate', () => {
     expect(rescuesLeft(open(9), true)).toBe(Infinity);
   });
 
-  it('the grown-up question is simple addition', () => {
-    const q = makeQuestion(() => 0);
-    expect(q.answer).toBe(q.a + q.b);
-    expect(q.a).toBeGreaterThanOrEqual(2);
-    expect(checkAnswer(q, String(q.answer))).toBe(true);
-    expect(checkAnswer(q, q.answer + 1)).toBe(false);
-    expect(checkAnswer(q, 'nope')).toBe(false);
-  });
 });

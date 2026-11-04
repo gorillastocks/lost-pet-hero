@@ -8,7 +8,9 @@ import {
   interactHere, journal, listJobs, movePlayer, resolveOffer, statusLine, tapFern, tapLog,
   tapPicture, tapSwitch,
 } from './game.js';
-import { checkAnswer, devUnlockAvailable, isFullGameUnlocked, makeQuestion, rescuesLeft, setFullGameUnlocked } from './progress.js';
+import { devUnlockAvailable, isFullGameUnlocked, rescuesLeft, setFullGameUnlocked } from './progress.js';
+import { cancelGate, cooldownLeft, freshGate, isLocked, makeQuestion, submitAttempt } from './gate.js';
+import { presentPurchase, restorePurchases } from './store.js';
 import { SAVE_KEY, SETTINGS_KEY, readRaw, writeRaw } from './storage.js';
 import { cameraFor, drawWorld, tileCenter, tileFromPoint } from './render.js';
 import { createTrail } from './world.js';
@@ -33,6 +35,9 @@ export function createApp(root, store) {
   let titleReady = false;
   let modeIntroPlayed = false;
   let gateNext = 'unlock';
+  let gateState = freshGate();
+  let gateQuestion = null;
+  let purchaseAllowed = false;
 
   function loadSettings() {
     try {
@@ -262,6 +267,7 @@ export function createApp(root, store) {
       ),
       h('footer', { class: 'bar' },
         h('button', { id: 'btn-settings', onclick: () => openSettings('town') }, 'Settings'),
+        h('button', { id: 'btn-grownups', onclick: () => openPurchaseGate('town') }, 'Grown-ups'),
         h('button', { id: 'btn-title', class: 'quiet', onclick: () => { showMode({ quiet: true }); say('come-back'); } }, 'Title')),
     ));
     for (const canvas of root.querySelectorAll('canvas[data-kind]')) {
@@ -295,10 +301,10 @@ export function createApp(root, store) {
       return;
     }
     if (state.active?.jobId === id) { showTrail(); return; }
-    if (!rescuesLeft(state, unlocked())) { gateNext = 'unlock'; showGate(); return; }
+    if (!rescuesLeft(state, unlocked())) { openPurchaseGate('town'); return; }
     const started = beginJob(state, id, Math.random, { unlocked: unlocked() });
     if (!started.ok) {
-      if (started.reason === 'gate') { gateNext = 'unlock'; showGate(); }
+      if (started.reason === 'gate') openPurchaseGate('town');
       return;
     }
     persist();
@@ -806,70 +812,157 @@ export function createApp(root, store) {
   function openSettings(back) {
     settingsFrom = back;
     gateNext = 'settings';
+    purchaseAllowed = false;
     showGate();
   }
 
+  function openPurchaseGate(back) {
+    settingsFrom = back || 'town';
+    gateNext = 'purchase';
+    purchaseAllowed = false;
+    showGate();
+  }
+
+  function leaveGate() {
+    purchaseAllowed = false;
+    const back = gateNext === 'settings' || gateNext === 'purchase' ? settingsFrom : 'town';
+    if (back === 'trail' && state?.active) showTrail();
+    else if (state && back !== 'title') showTown();
+    else if (state) showTown();
+    else showTitle();
+  }
+
   function showGate() {
-    question = makeQuestion(Math.random);
+    question = isLocked(gateState, Date.now()) ? gateQuestion : makeQuestion(Math.random);
+    gateQuestion = question;
     gatePassed = false;
+    purchaseAllowed = false;
+    const locked = isLocked(gateState, Date.now());
     const forSettings = gateNext === 'settings';
     screen(h('section', { class: 'screen sheet', id: 'gate' },
       h('h2', {}, 'Grown-ups'),
-      h('p', { class: 'lede' }, forSettings ? 'Settings are for grown-ups.' : 'Two stories are free to try. A grown-up can look at the full game.'),
-      h('p', { id: 'gate-q' }, question.prompt),
+      h('p', { class: 'lede' }, forSettings ? 'Settings are for grown-ups.' : 'A grown-up can open the full game.'),
+      h('p', { id: 'gate-q' }, locked ? 'Please wait.' : question.prompt),
       h('p', { id: 'gate-answer', 'aria-live': 'polite' }, ''),
-      h('div', { class: 'pad' },
+      h('div', { class: 'pad', id: 'gate-pad' },
         ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => h('button', {
+          type: 'button',
           'data-digit': String(n),
+          disabled: locked ? 'true' : null,
           onclick: () => typeDigit(n),
         }, String(n)))),
-      h('p', { id: 'gate-msg' }, 'Ask a grown-up to answer.'),
-      h('button', { id: 'btn-clear', onclick: () => { root.querySelector('#gate-answer').textContent = ''; } }, 'Clear'),
-      h('button', { id: 'btn-check', class: 'primary', onclick: () => submitGate() }, 'Check'),
-      h('button', { id: 'btn-gate-back', onclick: () => {
-        if (gateNext === 'settings') {
-          if (settingsFrom === 'trail' && state?.active) showTrail();
-          else if (state && settingsFrom !== 'title') showTown();
-          else showTitle();
-        } else showTown();
-      } }, 'Back'),
+      h('p', { id: 'gate-msg' }, locked ? 'Ask a grown-up!' : 'Ask a grown-up to answer.'),
+      h('p', { id: 'gate-tries', class: 'hint' }, locked ? '' : `${gateState.triesLeft} tries`),
+      h('button', { id: 'btn-clear', type: 'button', disabled: locked ? 'true' : null, onclick: () => { const el = root.querySelector('#gate-answer'); if (el) el.textContent = ''; } }, 'Clear'),
+      h('button', { id: 'btn-check', class: 'primary', type: 'button', disabled: locked ? 'true' : null, onclick: () => submitGate() }, 'Check'),
+      h('button', { id: 'btn-gate-back', type: 'button', onclick: () => { cancelGate(); leaveGate(); } }, 'Back'),
     ));
     say('grownups-gate');
+    if (locked) armCooldown();
+  }
+
+  function armCooldown() {
+    clearTimeout(idleTimer);
+    const tick = () => {
+      if (!root.querySelector('#gate')) return;
+      const left = cooldownLeft(gateState, Date.now());
+      const msg = root.querySelector('#gate-msg');
+      if (left <= 0) { showGate(); return; }
+      if (msg) msg.textContent = `Ask a grown-up! ${Math.ceil(left / 1000)}s`;
+      idleTimer = setTimeout(tick, 500);
+    };
+    tick();
   }
 
   function typeDigit(n) {
+    if (isLocked(gateState, Date.now())) return;
     const el = root.querySelector('#gate-answer');
-    const next = (el.textContent + n).replace(/\D/g, '').slice(0, 2);
-    el.textContent = next;
+    if (!el) return;
+    el.textContent = (el.textContent + n).replace(/\D/g, '').slice(0, 2);
     sfx('tap');
   }
 
   function submitGate() {
     const value = root.querySelector('#gate-answer')?.textContent || '';
-    if (!checkAnswer(question, value)) {
-      root.querySelector('#gate-msg').textContent = 'Not quite. A grown-up can try the next one.';
-      question = makeQuestion(Math.random);
-      root.querySelector('#gate-q').textContent = question.prompt;
-      root.querySelector('#gate-answer').textContent = '';
+    const result = submitAttempt(gateState, question, value, Date.now());
+    gateState = result.gate;
+    if (!result.purchase) {
+      purchaseAllowed = false;
       sfx('tap');
+      const msg = root.querySelector('#gate-msg');
+      if (msg) msg.textContent = result.message || 'Ask a grown-up!';
+      if (result.reason === 'fail') { leaveGate(); toast('Ask a grown-up!'); return; }
+      if (result.reason === 'cooldown') { showGate(); return; }
+      question = makeQuestion(Math.random);
+      gateQuestion = question;
+      const q = root.querySelector('#gate-q');
+      if (q) q.textContent = question.prompt;
+      const ans = root.querySelector('#gate-answer');
+      if (ans) ans.textContent = '';
+      const tries = root.querySelector('#gate-tries');
+      if (tries) tries.textContent = `${result.triesLeft} tries`;
       return;
     }
+    purchaseAllowed = true;
     gatePassed = true;
     sfx('sparkle');
     if (gateNext === 'settings') { showSettings(settingsFrom); return; }
-    showUnlock();
+    showPurchaseSheet();
   }
 
-  function showUnlock() {
-    screen(h('section', { class: 'screen sheet', id: 'unlock-card' },
+  function showPurchaseSheet() {
+    if (!purchaseAllowed) return;
+    screen(h('section', { class: 'screen sheet', id: 'purchase-sheet' },
       h('h2', {}, 'Full Game'),
       h('p', { class: 'price', id: 'price' }, FULL_GAME_PRICE),
-      h('p', { class: 'lede' }, 'Every lost pet in Wildwood, and room for new ones later.'),
-      h('p', {}, 'Nothing is charged. The shop is not open yet.'),
-      h('button', { id: 'btn-not-for-sale', disabled: 'true' }, 'Not for sale yet'),
-      import.meta.env.DEV ? h('button', { id: 'btn-dev-unlock', onclick: () => previewUnlock() }, 'Preview unlock (dev only)') : null,
-      h('button', { id: 'btn-unlock-back', onclick: () => showTown() }, 'Back to town'),
+      h('p', { class: 'lede' }, 'Every lost pet in Wildwood, for keeps.'),
+      h('button', { id: 'btn-buy', class: 'primary', type: 'button', onclick: () => onBuy() }, `${FULL_GAME_PRICE} Full Game`),
+      h('button', { id: 'btn-restore', type: 'button', onclick: () => onRestore() }, 'Restore purchases'),
+      h('p', { id: 'purchase-note' }, 'On iPhone this opens the App Store sheet. This web page does not charge anyone.'),
+      h('a', { id: 'link-privacy', href: './privacy.html' }, 'Privacy policy'),
+      h('a', { id: 'link-website', href: 'https://gorillastocks.github.io/lost-pet-hero/' }, 'Website'),
+      h('a', { id: 'link-credits', href: './credits.html' }, 'Credits'),
+      h('button', { id: 'btn-rate', type: 'button', onclick: () => openRating() }, 'Rate this game'),
+      h('button', { id: 'btn-unlock-back', type: 'button', onclick: () => { purchaseAllowed = false; showTown(); } }, 'Back to town'),
     ));
+  }
+
+  async function onBuy() {
+    if (!purchaseAllowed) return;
+    const result = await presentPurchase();
+    const note = root.querySelector('#purchase-note');
+    if (result.owned) {
+      setFullGameUnlocked(true, store);
+      persist();
+      purchaseAllowed = false;
+      showTown();
+      return;
+    }
+    if (note) {
+      note.textContent = result.platform === 'web'
+        ? 'Nothing is charged. The App Store sheet opens on iPhone.'
+        : (result.cancelled ? 'The App Store sheet was closed.' : (result.error || 'The purchase did not finish.'));
+    }
+  }
+
+  async function onRestore() {
+    if (!purchaseAllowed) return;
+    const result = await restorePurchases();
+    const note = root.querySelector('#purchase-note');
+    if (result.owned) {
+      setFullGameUnlocked(true, store);
+      persist();
+      purchaseAllowed = false;
+      showTown();
+      return;
+    }
+    if (note) note.textContent = 'No purchases to restore.';
+  }
+
+  function openRating() {
+    if (!purchaseAllowed) return;
+    const url = 'https://apps.apple.com';
+    try { window.open(url, '_blank', 'noopener'); } catch { /* stay in the game */ }
   }
 
   function previewUnlock() {

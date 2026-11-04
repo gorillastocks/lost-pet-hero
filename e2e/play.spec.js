@@ -133,7 +133,7 @@ test('a wild pet can be calmed into the sanctuary', async ({ page }) => {
   await expect(page.locator('#world')).toBeVisible();
 });
 
-test('after two rescues a grown-up sees the $9.99 card and nothing is unlocked', async ({ page }) => {
+test('a purchase sheet stays hidden until the grown-up gate is passed', async ({ page }) => {
   await page.goto('./?debug=1&instant=1');
   await page.locator('#btn-tap-play').click({ force: true });
   await page.evaluate(() => {
@@ -142,15 +142,39 @@ test('after two rescues a grown-up sees the $9.99 card and nothing is unlocked',
     state.completedJobs = ['pip', 'bramble'];
     window.__lph.adopt(state);
   });
+  const hidden = async () => {
+    await expect(page.locator('#purchase-sheet')).toHaveCount(0);
+    await expect(page.locator('#btn-buy')).toHaveCount(0);
+    await expect(page.locator('#btn-restore')).toHaveCount(0);
+    await expect(page.locator('#link-privacy')).toHaveCount(0);
+    await expect(page.locator('#link-website')).toHaveCount(0);
+    await expect(page.locator('#link-credits')).toHaveCount(0);
+    await expect(page.locator('#btn-rate')).toHaveCount(0);
+  };
+  await hidden();
   await page.click('#job-luma');
   await expect(page.locator('#gate')).toBeVisible();
+  await expect(page.locator('#gate-q')).toContainText('Type the answer:');
+  await expect(page.locator('#gate-q')).not.toHaveText(/\d/);
+  await hidden();
+  await page.click('#btn-gate-back');
+  await expect(page.locator('#job-luma')).toBeVisible();
+  await hidden();
+  await page.click('#job-luma');
   await page.click('#btn-check');
   await expect(page.locator('#gate-msg')).toContainText('grown-up');
+  await hidden();
   await answerGate(page);
+  await expect(page.locator('#purchase-sheet')).toBeVisible();
   await expect(page.locator('#price')).toHaveText('$9.99');
-  await expect(page.locator('#btn-not-for-sale')).toBeDisabled();
+  await expect(page.locator('#btn-buy')).toBeVisible();
+  await expect(page.locator('#btn-restore')).toBeVisible();
+  await expect(page.locator('#link-privacy')).toBeVisible();
+  await page.click('#btn-buy');
+  await expect(page.locator('#purchase-note')).toContainText('Nothing is charged');
   await expect(page.locator('#btn-dev-unlock')).toHaveCount(0);
   await page.click('#btn-unlock-back');
   await page.click('#job-luma');
   await expect(page.locator('#gate')).toBeVisible();
+  await hidden();
 });

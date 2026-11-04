@@ -44,11 +44,14 @@ export async function timeATreat(page, id = 'fish') {
   });
 }
 
+const NUMBER_WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
+
 export async function answerGate(page) {
   const q = await page.locator('#gate-q').innerText();
-  const match = q.match(/(\d+)\s*\+\s*(\d+)/);
+  const match = q.match(/Type the answer:\s+(\w+)\s+times\s+(\w+)/i);
   expect(match, q).toBeTruthy();
-  const answer = String(Number(match[1]) + Number(match[2]));
+  const answer = String(NUMBER_WORDS[match[1].toLowerCase()] * NUMBER_WORDS[match[2].toLowerCase()]);
+  expect(answer).not.toBe('NaN');
   for (const digit of answer) await page.locator(`[data-digit="${digit}"]`).click();
   await page.click('#btn-check');
 }
