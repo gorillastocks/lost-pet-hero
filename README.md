@@ -4,6 +4,8 @@ A quiet portrait game for one player, about ages 5 to 12. You take a job in Embe
 
 **Play:** https://gorillastocks.github.io/lost-pet-hero/
 
+If that link says the page does not exist, GitHub Pages still needs to be switched on once. Open the repo, then Settings, then Pages. Under **Build and deployment**, choose **Deploy from a branch**, branch **gh-pages**, folder **/ (root)**, and save. Wait about a minute and open the link again. Every later change on main publishes itself.
+
 ## On your iPhone, in the browser
 
 Open the play link in Safari. Add it to your Home Screen if you want the full screen. It also works offline after the first load.
