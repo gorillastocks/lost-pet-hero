@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,19 +26,33 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Turn on GitHub Pages if this token is allowed to
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/pages" -f build_type=legacy -f "source[branch]=gh-pages" -f "source[path]=/" \
+            || gh api --method PUT "repos/${{ github.repository }}/pages" -f build_type=legacy -f "source[branch]=gh-pages" -f "source[path]=/"
+
+      - name: Publish the site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf /tmp/pages
+          if git fetch origin gh-pages; then
+            git worktree add --detach /tmp/pages origin/gh-pages
+          else
+            git worktree add --detach /tmp/pages --orphan
+            git -C /tmp/pages checkout --orphan gh-pages
+          fi
+          find /tmp/pages -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a dist/. /tmp/pages/
+          touch /tmp/pages/.nojekyll
+          git -C /tmp/pages add -A
+          if git -C /tmp/pages diff --cached --quiet; then
+            echo "Site already matches this build"
+            exit 0
+          fi
+          git -C /tmp/pages commit -m "Publish site"
+          git -C /tmp/pages push origin HEAD:gh-pages
