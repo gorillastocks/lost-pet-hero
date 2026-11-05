@@ -1,0 +1,38 @@
+name: Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::This repo needs Actions secrets CLOUDFLARE_API_TOKEN (Account / Cloudflare Pages / Edit) and CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          npx --yes wrangler@4 pages project create lost-pet-hero --production-branch=main || true
+          npx --yes wrangler@4 pages deploy dist --project-name=lost-pet-hero --branch=main --commit-hash="$GITHUB_SHA"

@@ -63,6 +63,8 @@ self.addEventListener('fetch', (e) => {
 }
 
 export default defineConfig({
+  // Relative URLs work at the domain root (lost-pet-hero.pages.dev)
+  // and under /lost-pet-hero/ on GitHub Pages.
   base: './',
   plugins: [offlineServiceWorker()],
   build: {

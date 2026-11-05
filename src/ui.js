@@ -1347,7 +1347,7 @@ export function createApp(root, store) {
       h('button', { id: 'btn-restore', type: 'button', onclick: () => onRestore() }, 'Restore purchases'),
       h('p', { id: 'purchase-note' }, 'On iPhone this opens the App Store sheet. This web page does not charge anyone.'),
       h('a', { id: 'link-privacy', href: './privacy.html' }, 'Privacy policy'),
-      h('a', { id: 'link-website', href: 'https://gorillastocks.github.io/lost-pet-hero/' }, 'Website'),
+      h('a', { id: 'link-website', href: 'https://lost-pet-hero.pages.dev/' }, 'Website'),
       h('a', { id: 'link-credits', href: './credits.html' }, 'Credits'),
       h('button', { id: 'btn-rate', type: 'button', onclick: () => openRating() }, 'Rate this game'),
       h('button', { id: 'btn-unlock-back', type: 'button', onclick: () => { purchaseAllowed = false; showTown(); } }, 'Back to town'),
