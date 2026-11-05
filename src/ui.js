@@ -18,6 +18,8 @@ import { inZone, zoneBand } from './calm.js';
 import { drawSymbol, paintAnimal } from './art.js';
 import { audio, LINES } from './audio.js';
 import { cluePicture } from './clues.js';
+import { AVATARS, normaliseAvatar, readAvatarChoice } from './avatar.js';
+import { drawAvatar } from './art.js';
 
 const FERN_LABELS = ['Sunset side', 'Left of middle', 'Middle', 'Right of middle', 'Sunrise side'];
 const params = new URLSearchParams(globalThis.location?.search || '');
@@ -43,12 +45,17 @@ export function createApp(root, store) {
     try {
       const raw = store.getItem(SETTINGS_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
+      const hero = readAvatarChoice(parsed);
       return {
         difficulty: parsed?.difficulty === 'normal' ? 'normal' : 'easy',
         sound: parsed?.sound !== false,
         speech: parsed?.speech !== false,
+        avatar: hero.avatar,
+        avatarChosen: hero.avatarChosen,
       };
-    } catch { return { difficulty: 'easy', sound: true, speech: true }; }
+    } catch {
+      return { difficulty: 'easy', sound: true, speech: true, avatar: 'avery', avatarChosen: false };
+    }
   }
 
   function saveSettings() {
@@ -114,6 +121,7 @@ export function createApp(root, store) {
         id: 'btn-settings', class: 'iconbtn', type: 'button', 'aria-label': 'Settings',
         onclick: () => { sfx('tap'); openSettings('title'); },
       }, '⚙'),
+      heroButton('mode'),
     );
   }
 
@@ -162,6 +170,7 @@ export function createApp(root, store) {
 
   function showTitle() {
     if (!titleReady) showSplash();
+    else if (!settings.avatarChosen) showPicker('mode', { quiet: true });
     else showMode();
   }
 
@@ -173,6 +182,7 @@ export function createApp(root, store) {
       peekRow(),
     ));
     paintPeeks();
+    paintHeroes();
     if (audio.unlocked) say('title-tap');
   }
 
@@ -181,12 +191,92 @@ export function createApp(root, store) {
     audio.unlock();
     audio.setScene(true);
     sfx('sparkle');
-    showMode({ quiet: true });
+    if (settings.avatarChosen) showMode({ quiet: true });
+    else showPicker('mode', { quiet: true });
     say('title-greeting')?.then?.((started) => {
-      if (!started) { say('mode-choose'); return; }
-      audio.whenEnded().then(() => { if (titleReady && root.querySelector('#mode-panel')) say('mode-choose'); });
+      if (!started) {
+        if (root.querySelector('#hero-picker')) say('pick-hero');
+        else say('mode-choose');
+        return;
+      }
+      audio.whenEnded().then(() => {
+        if (!titleReady) return;
+        if (root.querySelector('#hero-picker')) say('pick-hero');
+        else if (root.querySelector('#mode-panel')) say('mode-choose');
+      });
     });
     modeIntroPlayed = true;
+  }
+
+  function showPicker(back = 'mode', opts = {}) {
+    const selected = normaliseAvatar(opts.selected || settings.avatar);
+    screen(h('section', { class: 'screen', id: 'hero-picker' },
+      h('h2', {}, 'Pick your hero!'),
+      h('p', { class: 'lede' }, 'This is you. The lost pets are someone else.'),
+      h('div', { class: 'scroll hero-grid', id: 'hero-grid' },
+        ...AVATARS.map((a) => h('button', {
+          id: `hero-${a.id}`,
+          type: 'button',
+          class: `hero-card${a.id === selected ? ' glow' : ''}`,
+          'aria-pressed': a.id === selected ? 'true' : 'false',
+          onclick: () => {
+            sfx('tap');
+            showPicker(back, { quiet: true, selected: a.id });
+          },
+        },
+          h('canvas', { 'data-avatar': a.id, width: '160', height: '160', 'aria-hidden': 'true' }),
+          h('strong', { class: 'heroname' }, a.name),
+          h('span', { class: 'you-tag' }, 'You')))),
+      h('footer', { class: 'bar' },
+        settings.avatarChosen ? h('button', {
+          id: 'btn-hero-back', type: 'button',
+          onclick: () => { sfx('tap'); leavePicker(back); },
+        }, 'Back') : null,
+        h('button', {
+          id: 'btn-hero-continue', class: 'primary', type: 'button',
+          onclick: () => confirmHero(selected, back),
+        }, 'Continue')),
+    ));
+    paintHeroes();
+    if (!opts.quiet) say('pick-hero');
+  }
+
+  function confirmHero(id, back) {
+    settings.avatar = normaliseAvatar(id);
+    settings.avatarChosen = true;
+    if (state) state.avatar = settings.avatar;
+    saveSettings();
+    if (state) persist();
+    sfx('sparkle');
+    leavePicker(back);
+  }
+
+  function leavePicker(back) {
+    if (back === 'town' && state) showTown();
+    else if (back === 'trail' && state?.active) showTrail();
+    else if (back === 'settings') showSettings(settingsFrom);
+    else showMode({ quiet: true });
+  }
+
+  function paintHeroes() {
+    for (const canvas of root.querySelectorAll('canvas[data-avatar]')) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      ctx.clearRect(0, 0, w, canvas.height);
+      drawAvatar(ctx, canvas.dataset.avatar, w / 2, w * 0.72, w * 0.7, 'portrait');
+    }
+  }
+
+  function heroButton(back) {
+    return h('button', {
+      id: 'btn-hero', class: 'iconbtn hero-mini', type: 'button', 'aria-label': 'Change your hero',
+      onclick: (ev) => {
+        ev.stopPropagation();
+        sfx('tap');
+        titleReady = true;
+        showPicker(back);
+      },
+    }, h('canvas', { 'data-avatar': settings.avatar, width: '96', height: '96', 'aria-hidden': 'true' }));
   }
 
   function showMode({ quiet = false } = {}) {
@@ -203,6 +293,7 @@ export function createApp(root, store) {
       peekRow(),
     ));
     paintPeeks();
+    paintHeroes();
     if (!quiet && !modeIntroPlayed) { modeIntroPlayed = true; say('mode-choose'); }
   }
 
@@ -225,6 +316,7 @@ export function createApp(root, store) {
 
   function newGame() {
     state = freshState(settings.difficulty);
+    state.avatar = normaliseAvatar(settings.avatar);
     state.settings = { ...settings };
     persist();
     showTown();
@@ -232,7 +324,15 @@ export function createApp(root, store) {
 
   function continueGame(save) {
     state = save;
-    settings = { ...settings, ...state.settings, difficulty: state.difficulty || settings.difficulty };
+    const hero = readAvatarChoice({ ...settings, ...state.settings });
+    settings = {
+      ...settings,
+      ...state.settings,
+      difficulty: state.difficulty || settings.difficulty,
+      avatar: settings.avatarChosen ? settings.avatar : hero.avatar,
+      avatarChosen: settings.avatarChosen || hero.avatarChosen,
+    };
+    state.avatar = normaliseAvatar(settings.avatar);
     saveSettings();
     if (state.active?.pending === 'sanctuary') showSanctuary();
     else if (state.active) showTrail();
@@ -250,6 +350,7 @@ export function createApp(root, store) {
         h('span', { id: 'stat-coins' }, `${state?.coins || 0} coins`),
         h('span', { id: 'stat-kind' }, `${state?.kindness || 0} kindness`),
         h('span', { id: 'stat-left', class: 'limit' }, limit)),
+      heroButton('town'),
     );
   }
 
@@ -273,6 +374,7 @@ export function createApp(root, store) {
     for (const canvas of root.querySelectorAll('canvas[data-kind]')) {
       paintAnimal(canvas, canvas.dataset.kind, canvas.dataset.mood || 'scared');
     }
+    paintHeroes();
     say('jobboard-intro');
   }
 
@@ -441,6 +543,8 @@ export function createApp(root, store) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawWorld(ctx, w, hgt, state, { x: state.active.x, y: state.active.y }, time);
+    state.avatar = normaliseAvatar(settings.avatar);
+    canvas.dataset.avatar = state.avatar;
     canvas.dataset.x = String(state.active.x);
     canvas.dataset.y = String(state.active.y);
     canvas.dataset.following = state.active.following ? '1' : '0';
@@ -805,6 +909,7 @@ export function createApp(root, store) {
         h('button', { id: 'btn-sanctuary-back', class: 'primary', onclick: () => state.active ? showTrail() : showTown() }, state.active ? 'Back to the trail' : 'Back to town')),
     ));
     for (const canvas of root.querySelectorAll('canvas[data-kind]')) paintAnimal(canvas, canvas.dataset.kind, 'happy');
+    paintHeroes();
     persist();
     say('sanctuary-new');
   }
@@ -981,6 +1086,11 @@ export function createApp(root, store) {
         h('button', { id: 'set-easy', class: settings.difficulty === 'easy' ? 'on' : '', onclick: () => setDiff('easy') }, 'Easy'),
         h('button', { id: 'set-normal', class: settings.difficulty === 'normal' ? 'on' : '', onclick: () => setDiff('normal') }, 'Normal')),
       h('p', { class: 'hint' }, DIFFICULTY[settings.difficulty].blurb),
+      h('p', {}, `Your hero: ${AVATARS.find((a) => a.id === settings.avatar)?.name || 'Avery'}`),
+      h('button', {
+        id: 'btn-settings-hero', type: 'button',
+        onclick: () => { sfx('tap'); showPicker('settings'); },
+      }, 'Change hero'),
       audioPanel(),
       import.meta.env.DEV ? h('button', { id: 'btn-dev-unlock', onclick: () => previewUnlock() }, 'Preview unlock (dev only)') : null,
       state ? h('button', { id: 'btn-abandon', onclick: () => { if (state.active) { abandonJob(state); persist(); } showTown(); } }, 'Leave the current search') : null,

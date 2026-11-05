@@ -7,9 +7,15 @@ export function trackErrors(page) {
   return errors;
 }
 
+export async function passHero(page) {
+  const go = page.locator('#btn-hero-continue');
+  if (await go.isVisible().catch(() => false)) await go.click();
+}
+
 export async function start(page, difficulty = 'easy') {
   await page.goto(`./?debug=1&instant=1`);
   await page.locator('#btn-tap-play').click({ force: true });
+  await passHero(page);
   await page.click(`#diff-${difficulty}`);
   await page.click('#btn-play');
 }

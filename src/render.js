@@ -1,4 +1,5 @@
-import { drawAnimal, drawKid, drawSymbol, drawTree } from './art.js';
+import { drawAnimal, drawAvatar, drawSymbol, drawTree } from './art.js';
+import { normaliseAvatar } from './avatar.js';
 import { jobById, animalById } from './data.js';
 import { createTrail, tileAt } from './world.js';
 
@@ -152,7 +153,7 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
     }
 
     if (t.x === pos.x && t.y === pos.y) {
-      drawKid(ctx, cx, cy - tile * 0.25 + bob, tile * 0.85, job.itemId);
+      drawAvatar(ctx, normaliseAvatar(state.avatar), cx, cy - tile * 0.28 + bob, tile * 1.45, 'map', job.itemId);
     }
     const wild = animalById(active.wildId);
     if (wild && active.wildWhere === 'grove' && t.kind === 'grove') {

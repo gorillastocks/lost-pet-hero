@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { answerGate, dismissClue, start, tapTile, timeATreat, trackErrors } from './helpers.js';
+import { answerGate, dismissClue, passHero, start, tapTile, timeATreat, trackErrors } from './helpers.js';
 
 test('title, settings, and three picture jobs', async ({ page }) => {
   const errors = trackErrors(page);
@@ -7,6 +7,7 @@ test('title, settings, and three picture jobs', async ({ page }) => {
   await expect(page.locator('h1')).toHaveText('Lost Pet Hero');
   await expect(page.locator('#btn-tap-play')).toBeVisible();
   await page.locator('#btn-tap-play').click({ force: true });
+  await passHero(page);
   await page.click('#diff-easy');
   await page.click('#diff-normal');
   await expect(page.locator('#diff-blurb')).toContainText('favourite');
@@ -102,6 +103,7 @@ test('easy shows an idle hint arrow; normal does not', async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.locator('#btn-tap-play').click({ force: true });
+  await passHero(page);
   await page.click('#diff-normal');
   await page.click('#btn-play');
   await page.click('#job-bramble');
@@ -138,6 +140,7 @@ test('a small phone shows every job and the grown-up gate', async ({ page }) => 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('./?debug=1&instant=1');
   await page.locator('#btn-tap-play').click({ force: true });
+  await passHero(page);
   const petsIn = await page.evaluate(() => {
     const app = document.querySelector('#app').getBoundingClientRect();
     return [...document.querySelectorAll('.peek')].every((el) => {
@@ -184,6 +187,7 @@ test('a small phone shows every job and the grown-up gate', async ({ page }) => 
 test('a purchase sheet stays hidden until the grown-up gate is passed', async ({ page }) => {
   await page.goto('./?debug=1&instant=1');
   await page.locator('#btn-tap-play').click({ force: true });
+  await passHero(page);
   await page.evaluate(() => {
     const state = window.__lph.fresh();
     state.rescues = 2;
@@ -225,4 +229,39 @@ test('a purchase sheet stays hidden until the grown-up gate is passed', async ({
   await page.click('#job-luma');
   await expect(page.locator('#gate')).toBeVisible();
   await hidden();
+});
+
+test('the hero you pick is saved and worn on the map', async ({ page }) => {
+  await page.goto('./?debug=1&instant=1');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.locator('#btn-tap-play').click({ force: true });
+  await expect(page.locator('#hero-picker')).toBeVisible();
+  await expect(page.locator('h2')).toHaveText('Pick your hero!');
+  await expect(page.locator('#diff-easy')).toHaveCount(0);
+  await expect(page.locator('#hero-fox')).toContainText('You');
+  await page.click('#hero-kai');
+  await expect(page.locator('#hero-kai')).toHaveClass(/glow/);
+  await page.click('#btn-hero-continue');
+  await expect(page.locator('#mode-panel')).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('lostpet.settings')));
+  expect(saved.avatar).toBe('kai');
+  expect(saved.avatarChosen).toBe(true);
+
+  await page.reload();
+  await page.locator('#btn-tap-play').click({ force: true });
+  await expect(page.locator('#hero-picker')).toHaveCount(0);
+  await page.click('#btn-play');
+  await page.click('#job-pip');
+  await page.click('#btn-enter');
+  await expect(page.locator('#world')).toHaveAttribute('data-avatar', 'kai');
+
+  await page.click('#btn-town');
+  await page.click('#btn-hero');
+  await page.click('#hero-fox');
+  await page.click('#btn-hero-continue');
+  await page.click('#btn-resume');
+  await expect(page.locator('#world')).toHaveAttribute('data-avatar', 'fox');
+  const again = await page.evaluate(() => JSON.parse(localStorage.getItem('lostpet.settings')).avatar);
+  expect(again).toBe('fox');
 });

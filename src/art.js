@@ -412,6 +412,269 @@ export function drawSymbol(ctx, id, x, y, s) {
   ctx.restore();
 }
 
+const HERO = {
+  avery: { skin: '#F3C39A', hair: '#C4783A', shirt: '#14B8B0', pants: '#3D6B9A', pack: '#FFD84D' },
+  kai: { skin: '#8C5A3C', hair: '#24160F', shirt: '#FFD84D', pants: '#4A3B6B', cape: '#FF4F78' },
+  mira: { skin: '#E7B48C', hair: '#4A2714', shirt: '#3AA0E8', pants: '#5C6B3A', hat: '#E2C27A' },
+  sam: { skin: '#F6D3B0', hair: '#3A2A22', shirt: '#3ECF9A', pants: '#4A3B6B', scarf: '#FF7EB6' },
+  fox: { fur: '#FF8A3D', belly: '#FFF1DC', inner: '#FFB088' },
+  bunny: { fur: '#D5D0D8', belly: '#FFFFFF', inner: '#FF8FC7' },
+  owl: { fur: '#B48CFF', belly: '#F4ECFF', beak: '#FFD84D' },
+  panda: { fur: '#FFFBFA', patch: '#2A2438', blush: '#FFB3C7' },
+};
+
+function heroStroke(ctx, s) {
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(3, s * 0.045);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke();
+}
+
+function heroDisc(ctx, x, y, r, fill, s) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  heroStroke(ctx, s);
+}
+
+function heroEyes(ctx, x, y, s) {
+  const r = Math.max(3.5, s * 0.085);
+  ctx.lineWidth = Math.max(2, s * 0.03);
+  for (const dx of [-1, 1]) {
+    const ex = x + dx * s * 0.1;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(ex, y, r * 1.05, r * 1.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.fillStyle = '#2A2144';
+    ctx.beginPath();
+    ctx.arc(ex + r * 0.12, y + r * 0.12, r * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(ex - r * 0.22, y - r * 0.28, r * 0.26, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function heroSmile(ctx, x, y, s) {
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(2, s * 0.035);
+  ctx.beginPath();
+  ctx.arc(x, y, s * 0.07, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+}
+
+function drawHeldItem(ctx, x, y, s, itemId) {
+  if (!itemId) return;
+  if (itemId === 'scarf') {
+    ctx.strokeStyle = '#E36B4F';
+    ctx.lineWidth = Math.max(4, s * 0.06);
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.28, y - s * 0.2);
+    ctx.quadraticCurveTo(x - s * 0.48, y, x - s * 0.3, y + s * 0.12);
+    ctx.stroke();
+  } else if (itemId === 'ball') {
+    heroDisc(ctx, x - s * 0.34, y - s * 0.08, s * 0.09, '#E36B4F', s);
+  } else if (itemId === 'bell') {
+    heroDisc(ctx, x - s * 0.34, y - s * 0.1, s * 0.08, '#F2D56B', s);
+  }
+}
+
+function drawKidHero(ctx, id, x, y, s, itemId) {
+  const p = HERO[id];
+  drawShadow(ctx, x, y + s * 0.02, s * 0.85);
+  if (id === 'kai') {
+    ctx.fillStyle = p.cape;
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.16, y - s * 0.5);
+    ctx.lineTo(x + s * 0.16, y - s * 0.5);
+    ctx.quadraticCurveTo(x + s * 0.48, y - s * 0.2, x + s * 0.28, y + s * 0.02);
+    ctx.lineTo(x - s * 0.28, y + s * 0.02);
+    ctx.quadraticCurveTo(x - s * 0.48, y - s * 0.2, x - s * 0.16, y - s * 0.5);
+    ctx.fill();
+    heroStroke(ctx, s);
+  }
+  if (id === 'avery') {
+    ctx.fillStyle = p.pack;
+    rr(ctx, x - s * 0.2, y - s * 0.42, s * 0.4, s * 0.26, s * 0.08);
+    ctx.fill();
+    heroStroke(ctx, s);
+    ctx.strokeStyle = '#C49212';
+    ctx.lineWidth = Math.max(2, s * 0.03);
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.08, y - s * 0.42);
+    ctx.lineTo(x - s * 0.08, y - s * 0.16);
+    ctx.moveTo(x + s * 0.08, y - s * 0.42);
+    ctx.lineTo(x + s * 0.08, y - s * 0.16);
+    ctx.stroke();
+  }
+  ctx.fillStyle = p.pants;
+  rr(ctx, x - s * 0.16, y - s * 0.2, s * 0.13, s * 0.2, s * 0.04);
+  ctx.fill(); heroStroke(ctx, s);
+  rr(ctx, x + s * 0.03, y - s * 0.2, s * 0.13, s * 0.2, s * 0.04);
+  ctx.fill(); heroStroke(ctx, s);
+  ctx.fillStyle = p.shirt;
+  rr(ctx, x - s * 0.2, y - s * 0.46, s * 0.4, s * 0.3, s * 0.12);
+  ctx.fill(); heroStroke(ctx, s);
+  if (id === 'sam') {
+    ctx.fillStyle = p.scarf;
+    rr(ctx, x - s * 0.18, y - s * 0.5, s * 0.36, s * 0.11, s * 0.05);
+    ctx.fill(); heroStroke(ctx, s);
+    rr(ctx, x + s * 0.08, y - s * 0.42, s * 0.1, s * 0.22, s * 0.04);
+    ctx.fill(); heroStroke(ctx, s);
+  }
+  if (id === 'mira') {
+    ctx.fillStyle = p.hair;
+    for (const [dx, dy] of [[-0.18, -0.58], [0.18, -0.58], [-0.22, -0.72], [0.22, -0.72], [0, -0.8]]) {
+      heroDisc(ctx, x + dx * s, y + dy * s, s * 0.09, p.hair, s);
+    }
+  }
+  heroDisc(ctx, x, y - s * 0.66, s * 0.2, p.skin, s);
+  if (id === 'avery' || id === 'kai' || id === 'sam') {
+    ctx.fillStyle = p.hair;
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.7, s * 0.2, Math.PI, 0);
+    ctx.fill();
+    if (id === 'avery') {
+      heroDisc(ctx, x - s * 0.16, y - s * 0.62, s * 0.07, p.hair, s);
+      heroDisc(ctx, x + s * 0.16, y - s * 0.62, s * 0.07, p.hair, s);
+    }
+  }
+  if (id === 'mira') {
+    ctx.fillStyle = p.hat;
+    ctx.beginPath();
+    ctx.ellipse(x, y - s * 0.82, s * 0.3, s * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill(); heroStroke(ctx, s);
+    rr(ctx, x - s * 0.12, y - s * 1.02, s * 0.24, s * 0.2, s * 0.06);
+    ctx.fill(); heroStroke(ctx, s);
+  }
+  if (id === 'avery') {
+    ctx.fillStyle = '#E08A4F';
+    for (const dx of [-0.08, -0.04, 0.05]) {
+      ctx.beginPath();
+      ctx.arc(x + dx * s, y - s * 0.58, s * 0.018, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  heroEyes(ctx, x, y - s * 0.66, s);
+  heroSmile(ctx, x, y - s * 0.56, s);
+  blush(ctx, x, y - s * 0.6, s * 0.9);
+  drawHeldItem(ctx, x, y, s, itemId);
+}
+
+function drawAnimalHero(ctx, id, x, y, s) {
+  drawShadow(ctx, x, y + s * 0.02, s * 0.9);
+  if (id === 'fox') {
+    const p = HERO.fox;
+    ctx.fillStyle = p.fur;
+    ctx.beginPath();
+    ctx.moveTo(x + s * 0.16, y - s * 0.2);
+    ctx.quadraticCurveTo(x + s * 0.55, y - s * 0.05, x + s * 0.48, y + s * 0.02);
+    ctx.quadraticCurveTo(x + s * 0.28, y - s * 0.02, x + s * 0.16, y - s * 0.08);
+    ctx.fill(); heroStroke(ctx, s);
+    ctx.fillStyle = p.belly;
+    ctx.beginPath();
+    ctx.arc(x + s * 0.46, y - s * 0.02, s * 0.07, 0, Math.PI * 2);
+    ctx.fill(); heroStroke(ctx, s);
+    heroDisc(ctx, x, y - s * 0.28, s * 0.26, p.fur, s);
+    heroDisc(ctx, x, y - s * 0.22, s * 0.14, p.belly, s);
+    ctx.fillStyle = p.fur;
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.16, y - s * 0.42);
+    ctx.lineTo(x - s * 0.28, y - s * 0.78);
+    ctx.lineTo(x - s * 0.02, y - s * 0.48);
+    ctx.moveTo(x + s * 0.16, y - s * 0.42);
+    ctx.lineTo(x + s * 0.28, y - s * 0.78);
+    ctx.lineTo(x + s * 0.02, y - s * 0.48);
+    ctx.fill(); heroStroke(ctx, s);
+    heroEyes(ctx, x, y - s * 0.3, s * 0.95);
+    ctx.fillStyle = '#3A2A22';
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.2, s * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (id === 'bunny') {
+    const p = HERO.bunny;
+    ctx.fillStyle = p.inner;
+    ctx.beginPath();
+    ctx.ellipse(x - s * 0.12, y - s * 0.72, s * 0.07, s * 0.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + s * 0.12, y - s * 0.72, s * 0.07, s * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill(); heroStroke(ctx, s);
+    ctx.fillStyle = p.fur;
+    ctx.beginPath();
+    ctx.ellipse(x - s * 0.12, y - s * 0.74, s * 0.1, s * 0.26, -0.05, 0, Math.PI * 2);
+    ctx.ellipse(x + s * 0.12, y - s * 0.74, s * 0.1, s * 0.26, 0.05, 0, Math.PI * 2);
+    ctx.fill(); heroStroke(ctx, s);
+    heroDisc(ctx, x, y - s * 0.28, s * 0.28, p.fur, s);
+    heroDisc(ctx, x, y - s * 0.22, s * 0.14, p.belly, s);
+    heroEyes(ctx, x, y - s * 0.32, s);
+    ctx.fillStyle = p.inner;
+    ctx.beginPath();
+    ctx.ellipse(x, y - s * 0.18, s * 0.045, s * 0.03, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (id === 'owl') {
+    const p = HERO.owl;
+    ctx.fillStyle = p.fur;
+    ctx.beginPath();
+    ctx.ellipse(x - s * 0.28, y - s * 0.28, s * 0.1, s * 0.16, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(x + s * 0.28, y - s * 0.28, s * 0.1, s * 0.16, 0.4, 0, Math.PI * 2);
+    ctx.fill(); heroStroke(ctx, s);
+    ctx.beginPath();
+    ctx.ellipse(x, y - s * 0.32, s * 0.32, s * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill(); heroStroke(ctx, s);
+    heroDisc(ctx, x, y - s * 0.24, s * 0.16, p.belly, s);
+    heroEyes(ctx, x, y - s * 0.36, s * 1.15);
+    ctx.fillStyle = p.beak;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 0.28);
+    ctx.lineTo(x - s * 0.06, y - s * 0.2);
+    ctx.lineTo(x + s * 0.06, y - s * 0.2);
+    ctx.closePath();
+    ctx.fill(); heroStroke(ctx, s);
+  } else {
+    const p = HERO.panda;
+    heroDisc(ctx, x - s * 0.18, y - s * 0.62, s * 0.1, p.patch, s);
+    heroDisc(ctx, x + s * 0.18, y - s * 0.62, s * 0.1, p.patch, s);
+    heroDisc(ctx, x, y - s * 0.28, s * 0.3, p.fur, s);
+    ctx.fillStyle = p.patch;
+    ctx.beginPath();
+    ctx.ellipse(x - s * 0.12, y - s * 0.32, s * 0.09, s * 0.07, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(x + s * 0.12, y - s * 0.32, s * 0.09, s * 0.07, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    heroEyes(ctx, x, y - s * 0.32, s * 0.85);
+    heroDisc(ctx, x - s * 0.22, y - s * 0.12, s * 0.08, p.patch, s);
+    heroDisc(ctx, x + s * 0.22, y - s * 0.12, s * 0.08, p.patch, s);
+    ctx.fillStyle = p.patch;
+    ctx.beginPath();
+    ctx.ellipse(x, y - s * 0.18, s * 0.05, s * 0.035, 0, 0, Math.PI * 2);
+    ctx.fill();
+    blush(ctx, x, y - s * 0.2, s);
+  }
+}
+
+/** Top-down hero. `view` 'portrait' adds a candy disc behind the same sprite. */
+export function drawAvatar(ctx, id, x, y, s, view = 'map', itemId) {
+  const who = HERO[id] ? id : 'avery';
+  ctx.save();
+  if (view === 'portrait') {
+    ctx.fillStyle = who === 'fox' || who === 'bunny' || who === 'owl' || who === 'panda'
+      ? (HERO[who].fur || '#fff')
+      : HERO[who].shirt;
+    ctx.globalAlpha = 0.28;
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.28, s * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (HERO[who].skin) drawKidHero(ctx, who, x, y, s, itemId);
+  else drawAnimalHero(ctx, who, x, y + s * 0.04, s * 1.18);
+  ctx.restore();
+}
+
 export function paintAnimal(canvas, kind, mood = 'scared') {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(2, globalThis.devicePixelRatio || 1);

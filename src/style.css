@@ -352,6 +352,29 @@ button.pic { min-height: 72px; font-size: 22px; }
   font-size: 22px;
   box-shadow: 0 3px 0 var(--ink);
 }
+.hero-mini canvas { width: 40px; height: 40px; display: block; pointer-events: none; }
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-content: start;
+  padding: 2px;
+}
+button.hero-card {
+  min-height: 132px;
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 6px 6px 8px;
+  background: linear-gradient(#fff, #ffe8f6);
+  font-size: 16px;
+}
+button.hero-card canvas { width: 86px; height: 86px; pointer-events: none; }
+.heroname { font-family: "Fredoka", "Nunito", sans-serif; font-size: 18px; line-height: 1.05; }
+.you-tag { font-size: 13px; font-weight: 800; color: #d4639f; }
 .logo-wrap { position: relative; z-index: 2; margin-top: 4px; max-width: 100%; }
 .logo {
   font-family: "Baloo 2", "Fredoka", sans-serif;
