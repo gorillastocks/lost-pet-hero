@@ -280,37 +280,103 @@ def pet_found_fanfare():
     return _fade_out(buf / peak * 0.9, 0.4)
 
 
+def _noise(n, seed):
+    return np.random.default_rng(seed).uniform(-1, 1, n)
+
+
+def whistle(freq, dur, vel=1.0):
+    """Bright synth-flute: quick scoop, a little vibrato, soft breath."""
+    n = max(8, int(SR * dur))
+    t = np.arange(n) / SR
+    scoop = np.minimum(1, t / 0.03)
+    f = freq * (0.94 + 0.06 * scoop) * (1 + 0.004 * np.sin(2 * np.pi * 5.2 * t))
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    tone_w = np.sin(phase) + 0.22 * np.sin(2 * phase) + 0.05 * np.sin(3 * phase)
+    breath = _noise(n, int(freq) % 997) * 0.04
+    return vel * (tone_w + breath) * _env(n, 0.02, min(0.09, dur * 0.45))
+
+
+def glock(freq, dur, vel=0.35):
+    n = max(8, int(SR * dur))
+    t = np.arange(n) / SR
+    wave = np.sin(2 * np.pi * freq * t) + 0.4 * np.sin(2 * np.pi * freq * 2.01 * t)
+    return vel * wave * np.exp(-t / 0.18)
+
+
+def bass_pluck(freq, dur, vel=0.7):
+    n = max(8, int(SR * dur))
+    t = np.arange(n) / SR
+    wave = np.sin(2 * np.pi * freq * t) + 0.35 * np.sin(2 * np.pi * freq * 2 * t)
+    return vel * wave * np.exp(-t / 0.16)
+
+
+def clap(seed):
+    n = int(SR * 0.09)
+    burst = np.diff(_noise(n, seed), prepend=0.0)
+    return burst * np.exp(-np.arange(n) / (SR * 0.018)) * 0.7
+
+
+def shaker(seed):
+    n = int(SR * 0.045)
+    burst = np.diff(_noise(n, seed), prepend=0.0)
+    return burst * np.exp(-np.arange(n) / (SR * 0.01)) * 0.22
+
+
+def cymbal_swell(dur=1.05):
+    n = int(SR * dur)
+    raw = _noise(n, 21)
+    bright = raw - np.convolve(raw, np.ones(50) / 50, mode='same')
+    return bright * (np.linspace(0, 1, n) ** 2) * 0.65
+
+
+def cymbal_crash():
+    n = int(SR * 1.35)
+    raw = _noise(n, 29)
+    bright = raw - np.convolve(raw, np.ones(24) / 24, mode='same')
+    return bright * np.exp(-np.arange(n) / (SR * 0.32)) * 0.85
+
+
 def celebration_tune():
-    """About 13 seconds, bouncy C major, landing on a held C chord."""
-    bpm = 112
+    """Festive G-major parade, 126 BPM, about 12 seconds, ending on a ta-da chord.
+
+    The lead is a short hummable whistle hook, not a C-major scale run.
+    """
+    bpm = 126
     beat = 60 / bpm
-    bars = [
-        (261.63, (329.63, 392.00, 523.25, 659.25)),  # C
-        (392.00, (392.00, 493.88, 587.33, 783.99)),  # G
-        (220.00, (329.63, 440.00, 523.25, 659.25)),  # Am
-        (174.61, (349.23, 440.00, 523.25, 698.46)),  # F
-        (261.63, (392.00, 329.63, 293.66, 261.63)),  # C walking home
-        (261.63, (329.63, 392.00, 523.25)),          # C resolve
+    eighth = beat / 2
+    # Eight eighth-notes a bar. Roots are the bass note for that bar.
+    hook = [
+        (98.00, (987.77, 987.77, 1174.66, 987.77, 880.00, 783.99, 659.25, 587.33)),  # G
+        (73.42, (880.00, 880.00, 1046.50, 880.00, 783.99, 739.99, 659.25, 587.33)),  # D
+        (98.00, (1174.66, 987.77, 783.99, 987.77, 1174.66, 1174.66, 987.77, 783.99)),  # G
+        (65.41, (659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 523.25, 587.33)),  # C
+        (98.00, (987.77, 1174.66, 987.77, 783.99, 880.00, 987.77, 1174.66, 1318.51)),  # G lift
+        (73.42, (739.99, 783.99, 880.00, 987.77)),  # D pickup into the button
     ]
-    dur = len(bars) * 4 * beat + 1.3
+    tada = 1.55
+    dur = 5 * 8 * eighth + 4 * eighth + tada
     buf = np.zeros(int(SR * dur), dtype=np.float64)
-    for i, (root, melody) in enumerate(bars):
-        t0 = i * 4 * beat
-        _place(buf, felt(root / 2, beat * 1.4, 0.55), t0)
-        _place(buf, felt(root / 2, beat * 1.2, 0.4), t0 + 2 * beat)
-        third = root * (6 / 5 if i not in (1, 4) else 5 / 4)
-        _place(buf, felt(root, beat * 3.2, 0.28), t0)
-        _place(buf, felt(third, beat * 3.2, 0.22), t0 + 0.04)
-        _place(buf, felt(root * 1.5, beat * 3.2, 0.18), t0 + 0.08)
-        for j, note in enumerate(melody):
-            _place(buf, felt(note, beat * 1.35, 0.62), t0 + j * beat)
-    # Final C major, no new melody, so the tune resolves and stops.
-    end = len(bars) * 4 * beat
-    for freq, vel in ((261.63, 0.5), (329.63, 0.38), (392.00, 0.34), (523.25, 0.42)):
-        _place(buf, felt(freq, 1.5, vel), end)
-        _place(buf, pad(freq, 1.6, vel * 0.45), end)
+    for bar, (root, notes) in enumerate(hook):
+        t0 = bar * 8 * eighth
+        _place(buf, bass_pluck(root, beat * 0.9, 0.85), t0)
+        _place(buf, bass_pluck(root * 1.5, beat * 0.7, 0.55), t0 + 2 * eighth)
+        _place(buf, glock(root * 4, beat * 1.2, 0.22), t0)
+        for j, note in enumerate(notes):
+            at = t0 + j * eighth
+            _place(buf, whistle(note, eighth * 0.92, 0.78), at)
+            _place(buf, glock(note * 2, eighth * 1.4, 0.16), at)
+            if j % 2 == 1:
+                _place(buf, shaker(bar * 8 + j), at)
+            if j in (2, 6):
+                _place(buf, clap(100 + bar * 8 + j), at)
+    hit = 5 * 8 * eighth + 4 * eighth
+    _place(buf, cymbal_swell(1.05), hit - 1.05)
+    _place(buf, cymbal_crash(), hit)
+    for freq, vel in ((196.00, 0.7), (246.94, 0.55), (392.00, 0.62), (493.88, 0.5), (587.33, 0.58), (783.99, 0.72)):
+        _place(buf, felt(freq, 1.45, vel), hit)
+        _place(buf, glock(freq * 2, 1.1, vel * 0.35), hit)
     peak = np.max(np.abs(buf)) or 1
-    return _fade_out(buf / peak * 0.9, 0.45)
+    return _fade_out(buf / peak * 0.9, 0.4)
 
 
 def celebration_jingle():
@@ -331,11 +397,14 @@ def main():
         tmp = ROOT / 'scripts' / '.tmp-audio'
         music.mkdir(parents=True, exist_ok=True)
         tmp.mkdir(exist_ok=True)
-        for name, samples in {'pet-found': pet_found_fanfare(), 'celebration': celebration_tune()}.items():
+        jobs = {'celebration': celebration_tune()}
+        if '--celebration' not in sys.argv:
+            jobs = {'pet-found': pet_found_fanfare(), **jobs}
+        for name, samples in jobs.items():
             wav = tmp / f'{name}.wav'
             write_wav(wav, samples)
             dest = music / f'{name}.mp3'
-            loudnorm(wav, dest, i_lufs=-18, tp=-2.0, bitrate='160k')
+            loudnorm(wav, dest, i_lufs=-18.0, tp=-2.0, bitrate='160k')
             with wave.open(str(wav)) as w:
                 seconds = w.getnframes() / SR
             print(f'{name} {dest.stat().st_size} bytes {seconds:.2f}s')

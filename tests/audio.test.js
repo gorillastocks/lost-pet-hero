@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CUES, DUCK, LINES, createAudio, musicLevel, normalise, voiceUrl } from '../src/audio.js';
 import { CLUE_LINE, cluePicture } from '../src/clues.js';
@@ -19,6 +21,10 @@ describe('audio buses', () => {
   it('names the pet-found fanfare and the celebration tune', () => {
     expect(CUES['pet-found']).toBe('./music/pet-found.mp3');
     expect(CUES.celebration).toBe('./music/celebration.mp3');
+    const hash = (path) => createHash('md5').update(readFileSync(path)).digest('hex');
+    expect(hash('public/music/pet-found.mp3')).toBe('f931e359f8401aae1fe8f732361194d2');
+    expect(hash('public/music/celebration.mp3')).not.toBe('80790c71745d8b66f62fba01afb29b04');
+    expect(hash('public/music/celebration.mp3')).not.toBe(hash('public/music/pet-found.mp3'));
   });
 
   it('falls back to an audio element and stays quiet when the file will not play', async () => {
