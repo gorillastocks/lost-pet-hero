@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Cheerful title loop and four sound effects, written for this game.
+"""Original CC0 music and sound effects for Lost Pet Hero.
 
-The music is an original 8-bar loop (ukulele-ish pluck, glockenspiel, soft clap)
-that starts and ends on the same sample so it repeats cleanly. The effects are
-short synthesized pops and chimes. Both are released CC0 with the game.
+The theme is a slow forest bed: felt-piano and soft pad chords
+(Cmaj7, Am7, Fmaj7, G6), a faint breeze, and a few quiet birds.
+It loops seamlessly and sits quieter than the voice. The effects are
+short synthesized pops and chimes. Nothing here is sampled from
+another recording.
 """
 import math
 import struct
 import subprocess
 import wave
 from pathlib import Path
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 SR = 44100
@@ -55,64 +59,155 @@ def mix(into, src, at):
 
 
 def write_wav(path, samples):
-    peak = max(1e-9, max(abs(s) for s in samples))
-    buf = b''.join(struct.pack('<h', max(-32767, min(32767, int(s / peak * 28000)))) for s in samples)
+    data = np.asarray(samples, dtype=np.float64)
+    peak = max(1e-9, float(np.max(np.abs(data))))
+    pcm = np.clip(data / peak * 28000, -32767, 32767).astype('<i2')
     with wave.open(str(path), 'w') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SR)
-        w.writeframes(buf)
+        w.writeframes(pcm.tobytes())
 
 
-def loudnorm(wav, dest):
+def loudnorm(wav, dest, i_lufs=-16, tp=-1.5, bitrate=None):
+    spec = f'loudnorm=I={i_lufs}:TP={tp}:LRA=11'
     measure = subprocess.run([
-        'ffmpeg', '-i', str(wav), '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json',
+        'ffmpeg', '-i', str(wav), '-af', spec + ':print_format=json',
         '-f', 'null', '-',
     ], capture_output=True, text=True)
     blob = measure.stderr
     a, b = blob.rfind('{'), blob.rfind('}')
-    af = 'loudnorm=I=-16:TP=-1.5:LRA=11'
+    af = spec
     if a >= 0 and b > a:
         import json
         st = json.loads(blob[a:b + 1])
         finite = all(str(st.get(k, 'inf')) not in ('-inf', 'inf', 'nan') for k in ('input_i', 'input_tp', 'input_lra', 'input_thresh', 'target_offset'))
         if finite:
             af = (
-                'loudnorm=I=-16:TP=-1.5:LRA=11:'
+                f'{spec}:'
                 f"measured_I={st['input_i']}:measured_TP={st['input_tp']}:"
                 f"measured_LRA={st['input_lra']}:measured_thresh={st['input_thresh']}:"
                 f"offset={st['target_offset']}:linear=true"
             )
+    encode = ['-codec:a', 'libmp3lame', '-ar', '44100']
+    encode += ['-b:a', bitrate] if bitrate else ['-q:a', '4']
     subprocess.check_call([
-        'ffmpeg', '-y', '-i', str(wav), '-af', af,
-        '-codec:a', 'libmp3lame', '-q:a', '4', '-ar', '44100', str(dest),
+        'ffmpeg', '-y', '-i', str(wav), '-af', af, *encode, str(dest),
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def title_theme():
-    bpm = 115
-    beat = 60 / bpm
-    bars = 8
-    dur = bars * 4 * beat
+def _place(buf, src, at):
+    start = int(at * SR)
+    end = min(len(buf), start + len(src))
+    if start >= len(buf) or end <= start:
+        return
+    buf[start:end] += src[:end - start]
+
+
+def _env(n, attack, release):
+    t = np.arange(n) / SR
+    rise = 1 - np.exp(-t / max(attack, 0.01))
+    rel = np.ones(n)
+    rel_n = min(n - 1, int(release * SR))
+    if rel_n > 0:
+        rel[-rel_n:] = np.cos(np.linspace(0, np.pi / 2, rel_n)) ** 2
+    return rise * rel
+
+
+def felt(freq, dur, vel=1.0):
+    """Soft felt-piano tone: slow bloom, two slightly detuned strings, little bite."""
     n = int(SR * dur)
-    buf = [0.0] * n
-    # C major, bouncy: C G Am F, then C G F C
-    chords = [261.63, 392.00, 220.00, 174.61, 261.63, 392.00, 174.61, 261.63]
-    for bar, root in enumerate(chords):
-        t0 = bar * 4 * beat
-        for step in range(8):
-            mix(buf, tone(root * (2 if step % 2 == 0 else 1.5), 0.16), t0 + step * beat / 2)
-            mix(buf, tone(root * 2, 0.09, (1, 0.2), 'bell'), t0 + step * beat / 2 + beat * 0.25)
-        # clap on 2 and 4
-        for clap_beat in (1, 3):
-            mix(buf, noise_burst(0.05), t0 + clap_beat * beat)
-    # force a seamless join: fade the last 12 ms into the first 12 ms shape
-    fade = int(0.012 * SR)
-    for i in range(fade):
-        w = i / fade
-        buf[i] = buf[i] * w + buf[-fade + i] * (1 - w)
-        buf[-fade + i] *= (1 - w)
-    return buf
+    t = np.arange(n) / SR
+    wave = (
+        np.sin(2 * np.pi * freq * t)
+        + 0.55 * np.sin(2 * np.pi * freq * 1.004 * t)
+        + 0.12 * np.sin(2 * np.pi * freq * 2 * t)
+    )
+    return vel * wave * _env(n, 0.22, min(2.8, dur * 0.55))
+
+
+def pad(freq, dur, vel=0.4):
+    n = int(SR * dur)
+    t = np.arange(n) / SR
+    wave = np.sin(2 * np.pi * freq * t) + 0.65 * np.sin(2 * np.pi * freq * 0.997 * t)
+    return vel * wave * _env(n, 1.15, min(2.4, dur * 0.4))
+
+
+def chirp(freq, dur=0.16):
+    n = int(SR * dur)
+    t = np.arange(n) / SR
+    sweep = freq * (1 + 0.12 * (t / dur))
+    phase = 2 * np.pi * np.cumsum(sweep) / SR
+    env = np.sin(np.linspace(0, np.pi, n)) ** 2
+    return 0.22 * np.sin(phase) * env
+
+
+def breeze(n):
+    rng = np.random.default_rng(7)
+    white = rng.uniform(-1, 1, n)
+    kernel = np.hanning(1200)
+    kernel /= kernel.sum()
+    soft = np.convolve(white, kernel, mode='same')
+    t = np.arange(n) / SR
+    gust = 0.65 + 0.35 * np.sin(2 * np.pi * 0.06 * t)
+    return soft * gust
+
+
+def seamless(buf, fade_s=3.5):
+    """Overlap the ending onto the opening so the file repeats on adjacent samples."""
+    fade = int(SR * fade_s)
+    ramp = np.linspace(0, 1, fade)
+    out = buf.copy()
+    out[:fade] = buf[:fade] * ramp + buf[-fade:] * (1 - ramp)
+    return out[:-fade]
+
+
+# Close, warm voicings. The top note stays in a bright middle register.
+FOREST_CHORDS = [
+    [196.00, 329.63, 392.00, 493.88],  # Cmaj7  G3 E4 G4 B4
+    [220.00, 261.63, 329.63, 392.00],  # Am7    A3 C4 E4 G4
+    [174.61, 261.63, 329.63, 440.00],  # Fmaj7  F3 C4 E4 A4
+    [196.00, 246.94, 329.63, 392.00],  # G6     G3 B3 E4 G4
+]
+# One soft high tone per bar, still on the chord, so the bed keeps a little lift.
+FOREST_TOPS = [
+    [523.25, 659.25, 493.88, 523.25, 659.25],
+    [440.00, 523.25, 392.00, 493.88, 440.00],
+    [440.00, 523.25, 659.25, 698.46, 523.25],
+    [587.33, 659.25, 783.99, 493.88, 587.33],
+]
+
+
+def title_theme():
+    """About 72 seconds at 66 BPM. Four chords, five bars each, then a seamless join."""
+    bpm = 66
+    beat = 60 / bpm
+    bars_each = 5
+    chord_dur = bars_each * 4 * beat
+    overlap = 1.6
+    total = len(FOREST_CHORDS) * chord_dur
+    n = int(SR * (total + overlap))
+    buf = np.zeros(n, dtype=np.float64)
+    buf += breeze(n) * 0.045
+    for i, (tones, tops) in enumerate(zip(FOREST_CHORDS, FOREST_TOPS)):
+        t0 = i * chord_dur
+        span = chord_dur + overlap
+        for k, freq in enumerate(tones):
+            _place(buf, pad(freq, span, 0.34), t0)
+            _place(buf, felt(freq, span * 0.92, 0.55), t0 + k * 0.07)
+        for bar, top in enumerate(tops):
+            _place(buf, felt(top, beat * 3.2, 0.22), t0 + bar * 4 * beat + beat)
+    # A few quiet birds, not on a grid, so the woods feel lightly alive.
+    for at, freq in (
+        (6.2, 3100), (11.4, 2740), (18.8, 3480), (27.5, 2920),
+        (36.1, 3320), (44.7, 2680), (53.4, 3560), (63.2, 3010), (69.5, 2840),
+    ):
+        _place(buf, chirp(freq), at)
+        _place(buf, chirp(freq * 1.25, 0.11), at + 0.14)
+    buf -= buf.mean()
+    looped = seamless(buf, 3.5)
+    peak = np.max(np.abs(looped)) or 1
+    return looped / peak * 0.9
 
 
 def noise_burst(dur):
@@ -160,33 +255,32 @@ def sfx_fanfare():
 
 
 def main():
+    """Rewrite the theme only. Sound effects stay as they are unless --sfx is passed."""
+    import sys
     music = ROOT / 'public' / 'music'
-    sfx = ROOT / 'public' / 'sfx'
     music.mkdir(parents=True, exist_ok=True)
-    sfx.mkdir(parents=True, exist_ok=True)
-    jobs = {
-        music / 'title-theme.mp3': title_theme(),
-        sfx / 'tap.mp3': sfx_tap(),
-        sfx / 'heart-pop.mp3': sfx_heart(),
-        sfx / 'sparkle.mp3': sfx_sparkle(),
-        sfx / 'reunion-fanfare.mp3': sfx_fanfare(),
-    }
     tmp = ROOT / 'scripts' / '.tmp-audio'
     tmp.mkdir(exist_ok=True)
-    for dest, samples in jobs.items():
-        wav = tmp / (dest.stem + '.wav')
-        write_wav(wav, samples)
-        loudnorm(wav, dest)
-        print(dest.name, dest.stat().st_size)
-    # confirm the theme joins
-    import array
+    theme = title_theme()
     wav = tmp / 'title-theme.wav'
-    # re-measure seam on the pre-mp3 loop
-    w = wave.open(str(wav))
-    raw = array.array('h')
-    raw.frombytes(w.readframes(w.getnframes()))
-    w.close()
-    print('theme seam', abs(raw[0] - raw[-1]))
+    write_wav(wav, theme)
+    dest = music / 'title-theme.mp3'
+    loudnorm(wav, dest, i_lufs=-22, tp=-2.0, bitrate='128k')
+    with wave.open(str(wav)) as w:
+        frames = w.getnframes()
+        raw = np.frombuffer(w.readframes(frames), dtype='<i2')
+    print(f'theme {dest.stat().st_size} bytes  {frames / SR:.2f}s  seam {abs(int(raw[0]) - int(raw[-1]))}')
+    if '--sfx' in sys.argv:
+        sfx = ROOT / 'public' / 'sfx'
+        sfx.mkdir(parents=True, exist_ok=True)
+        for name, samples in {
+            'tap': sfx_tap(), 'heart-pop': sfx_heart(),
+            'sparkle': sfx_sparkle(), 'reunion-fanfare': sfx_fanfare(),
+        }.items():
+            sw = tmp / f'{name}.wav'
+            write_wav(sw, samples)
+            loudnorm(sw, sfx / f'{name}.mp3')
+            print(name, (sfx / f'{name}.mp3').stat().st_size)
 
 
 if __name__ == '__main__':
