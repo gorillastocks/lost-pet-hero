@@ -2,9 +2,9 @@
 
 A quiet portrait game for one player, about ages 5 to 12. You take a job in Emberhollow, follow clues through Wildwood, calm a scared pet, and walk them home. You cannot lose.
 
-**Play:** https://lost-pet-hero.pages.dev
+**Play:** https://gorillastocks.github.io/lost-pet-hero/
 
-GitHub Pages is still a backup: https://gorillastocks.github.io/lost-pet-hero/
+Cloudflare Pages (`https://lost-pet-hero.pages.dev`) is wired in `.github/workflows/cloudflare.yml` and goes live after the Cloudflare secrets are added.
 
 If that link says the page does not exist, GitHub Pages still needs to be switched on once. Open the repo, then Settings, then Pages. Under **Build and deployment**, choose **Deploy from a branch**, branch **gh-pages**, folder **/ (root)**, and save. Wait about a minute and open the link again. Every later change on main publishes itself.
 
