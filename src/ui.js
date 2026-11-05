@@ -1147,7 +1147,8 @@ export function createApp(root, store) {
   // Debug-only jumps so layout checks can open each screen without a full rescue.
   function preview(which) {
     if (which === 'title') { titleReady = false; showSplash(); return; }
-    if (which === 'mode') { titleReady = true; showMode({ quiet: true }); return; }
+    if (which === 'picker') { titleReady = true; showPicker('mode', { quiet: true }); return; }
+    if (which === 'mode') { titleReady = true; settings.avatarChosen = true; showMode({ quiet: true }); return; }
     if (which === 'gate') { if (!state) state = freshState(settings.difficulty); openSettings('town'); return; }
     if (which === 'settings') { if (!state) state = freshState(settings.difficulty); showSettings('town'); return; }
     if (which === 'jobs') { if (!state) state = freshState(settings.difficulty); showTown(); return; }

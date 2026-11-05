@@ -140,6 +140,17 @@ test('a small phone shows every job and the grown-up gate', async ({ page }) => 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('./?debug=1&instant=1');
   await page.locator('#btn-tap-play').click({ force: true });
+  const heroesFit = await page.evaluate(() => {
+    const grid = document.querySelector('.hero-grid').getBoundingClientRect();
+    const go = document.querySelector('#btn-hero-continue').getBoundingClientRect();
+    const cards = [...document.querySelectorAll('.hero-card')];
+    const inside = cards.every((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top >= grid.top - 1 && r.bottom <= grid.bottom + 1 && r.left >= grid.left - 1 && r.right <= grid.right + 1;
+    });
+    return cards.length === 8 && inside && go.top >= grid.bottom - 1;
+  });
+  expect(heroesFit).toBe(true);
   await passHero(page);
   const petsIn = await page.evaluate(() => {
     const app = document.querySelector('#app').getBoundingClientRect();
@@ -182,6 +193,14 @@ test('a small phone shows every job and the grown-up gate', async ({ page }) => 
     return { head: inside('#gate h2'), back: inside('#btn-gate-back'), digit: inside('[data-digit="5"]') };
   });
   expect(gate).toEqual({ head: true, back: true, digit: true });
+  await page.evaluate(() => window.__lph.preview('settings'));
+  const settingsBack = await page.evaluate(() => {
+    const app = document.querySelector('#app').getBoundingClientRect();
+    const back = document.querySelector('#btn-settings-back').getBoundingClientRect();
+    const head = document.querySelector('#settings h2').getBoundingClientRect();
+    return head.top >= app.top - 1 && back.bottom <= app.bottom + 1 && back.height >= 44;
+  });
+  expect(settingsBack).toBe(true);
 });
 
 test('a purchase sheet stays hidden until the grown-up gate is passed', async ({ page }) => {

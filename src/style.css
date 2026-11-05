@@ -462,6 +462,10 @@ button.hero-card canvas { width: 86px; height: 86px; pointer-events: none; }
   50% { transform: rotate(1.5deg); }
 }
 
+@media (max-height: 800px) {
+  .screen.sheet { justify-content: flex-start; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .screen.sheet button { min-height: 48px; }
+}
 @media (max-height: 700px) {
   .logo { font-size: 42px; }
   .peeks, .peek { height: 108px; }
@@ -472,8 +476,11 @@ button.hero-card canvas { width: 86px; height: 86px; pointer-events: none; }
   .job { padding: 10px 12px; }
   .bar { flex-wrap: nowrap; }
   .bar button { flex: 1 1 0; min-width: 0; min-height: 48px; font-size: 16px; padding: 8px 6px; white-space: nowrap; }
-  .screen.sheet { justify-content: flex-start; padding-top: 8px; padding-bottom: 8px; }
-  .screen.sheet > button, .pad button { min-height: 48px; }
+  .screen.sheet button { min-height: 44px; padding: 6px 10px; font-size: 16px; line-height: 1.15; }
+  button.hero-card { min-height: 104px; padding: 4px 4px 6px; }
+  button.hero-card canvas { width: 64px; height: 64px; }
+  .heroname { font-size: 16px; }
+  .you-tag { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cloud, .floater, .logo, .tap-play, .peek, .mode-panel { animation: none; }

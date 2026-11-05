@@ -12,7 +12,7 @@ const viewports = [
   { id: 'ipad-l', width: 1024, height: 768 },
   { id: 'desktop', width: 1280, height: 800 },
 ];
-const screens = ['title', 'mode', 'jobs', 'map', 'clues', 'calm', 'reunion', 'sanctuary', 'settings', 'gate'];
+const screens = ['title', 'picker', 'mode', 'jobs', 'map', 'clues', 'calm', 'reunion', 'sanctuary', 'settings', 'gate'];
 
 function audit() {
   const app = document.querySelector('#app');
@@ -40,6 +40,17 @@ function audit() {
     return app;
   }
 
+  function visibleBox(el) {
+    const r = el.getBoundingClientRect();
+    const box = clipper(el).getBoundingClientRect();
+    const left = Math.max(r.left, box.left);
+    const right = Math.min(r.right, box.right);
+    const top = Math.max(r.top, box.top);
+    const bottom = Math.min(r.bottom, box.bottom);
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, right, top, bottom };
+  }
+
   function label(el) {
     const id = el.id ? `#${el.id}` : '';
     const cls = el.className && typeof el.className === 'string' ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}` : '';
@@ -47,7 +58,7 @@ function audit() {
     return `${el.tagName.toLowerCase()}${id}${cls}${text ? ` "${text}"` : ''}`;
   }
 
-  const nodes = [...app.querySelectorAll('button, a, h1, h2, p, .job, .jobtitle, .jobdesc, .jobline, .logo, .ribbon, .top, .pad, #status, #calm-line, #reunion-copy')];
+  const nodes = [...app.querySelectorAll('button, a, h1, h2, p, .job, .jobtitle, .jobdesc, .jobline, .heroname, .you-tag, .logo, .ribbon, .top, .pad, #status, #calm-line, #reunion-copy')];
   for (const el of nodes) {
     if (!visible(el) || seen.has(el)) continue;
     seen.add(el);
@@ -100,8 +111,11 @@ function audit() {
       if (taps[i].contains(taps[j]) || taps[j].contains(taps[i])) continue;
       const a = taps[i].getBoundingClientRect();
       const b = taps[j].getBoundingClientRect();
-      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      const ar = visibleBox(taps[i]);
+      const br = visibleBox(taps[j]);
+      if (!ar || !br) continue;
+      const w = Math.min(ar.right, br.right) - Math.max(ar.left, br.left);
+      const h = Math.min(ar.bottom, br.bottom) - Math.max(ar.top, br.top);
       if (w > 6 && h > 6) issues.push({ kind: 'overlap', a: label(taps[i]), b: label(taps[j]), w: Math.round(w), h: Math.round(h) });
     }
   }
