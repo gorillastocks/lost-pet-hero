@@ -839,6 +839,7 @@ export function createApp(root, store) {
       }
       if (result.done && target === 'pet') {
         sfx('heart-pop');
+        audio.playCue('pet-found');
         showTrail();
         toast(`${animal.name} will follow you home.`);
         say('calm-success');
@@ -877,6 +878,7 @@ export function createApp(root, store) {
   const OWNER_SKIN = { 'Nana Moss': '#F3C39A', 'Coach Wren': '#C4886A', 'Keeper Sol': '#8C5A3C' };
 
   function showReunion(summary) {
+    audio.playCue('celebration');
     if (INSTANT) { showCelebration(summary); return; }
     const animal = animalById(summary.animalId);
     const skin = OWNER_SKIN[summary.owner] || '#F3C39A';
@@ -961,7 +963,6 @@ export function createApp(root, store) {
         h('p', { class: 'hint', id: 'prize-blurb' }, summary.prize?.blurb || '')),
       h('button', { id: 'btn-town', class: 'primary', type: 'button', onclick: () => showTown() }, 'Back to Emberhollow'),
     ));
-    sfx('reunion-jingle');
     const line = LINES[`reunion-${summary.animalId}`] ? `reunion-${summary.animalId}` : 'reunion-cheer';
     say(line);
     if (!INSTANT) {

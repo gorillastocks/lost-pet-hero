@@ -254,6 +254,65 @@ def sfx_fanfare():
     return buf
 
 
+def _fade_out(buf, seconds=0.35):
+    n = min(len(buf), int(SR * seconds))
+    if n <= 1:
+        return buf
+    buf = np.asarray(buf, dtype=np.float64).copy()
+    buf[-n:] *= np.linspace(1, 0, n)
+    return buf
+
+
+def pet_found_fanfare():
+    """Bright 4-second rise in C major: pluck, bell, and a soft string."""
+    dur = 4.2
+    buf = np.zeros(int(SR * dur), dtype=np.float64)
+    climb = (261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50)
+    for i, freq in enumerate(climb):
+        at = i * 0.38
+        _place(buf, felt(freq, 0.85, 0.7), at)
+        _place(buf, felt(freq * 2, 0.45, 0.28), at)
+        _place(buf, pad(freq / 2, 0.7, 0.22), at)
+    for freq in (523.25, 659.25, 783.99, 1046.50):
+        _place(buf, felt(freq, 1.5, 0.45), 2.75)
+        _place(buf, pad(freq, 1.6, 0.28), 2.75)
+    peak = np.max(np.abs(buf)) or 1
+    return _fade_out(buf / peak * 0.9, 0.4)
+
+
+def celebration_tune():
+    """About 13 seconds, bouncy C major, landing on a held C chord."""
+    bpm = 112
+    beat = 60 / bpm
+    bars = [
+        (261.63, (329.63, 392.00, 523.25, 659.25)),  # C
+        (392.00, (392.00, 493.88, 587.33, 783.99)),  # G
+        (220.00, (329.63, 440.00, 523.25, 659.25)),  # Am
+        (174.61, (349.23, 440.00, 523.25, 698.46)),  # F
+        (261.63, (392.00, 329.63, 293.66, 261.63)),  # C walking home
+        (261.63, (329.63, 392.00, 523.25)),          # C resolve
+    ]
+    dur = len(bars) * 4 * beat + 1.3
+    buf = np.zeros(int(SR * dur), dtype=np.float64)
+    for i, (root, melody) in enumerate(bars):
+        t0 = i * 4 * beat
+        _place(buf, felt(root / 2, beat * 1.4, 0.55), t0)
+        _place(buf, felt(root / 2, beat * 1.2, 0.4), t0 + 2 * beat)
+        third = root * (6 / 5 if i not in (1, 4) else 5 / 4)
+        _place(buf, felt(root, beat * 3.2, 0.28), t0)
+        _place(buf, felt(third, beat * 3.2, 0.22), t0 + 0.04)
+        _place(buf, felt(root * 1.5, beat * 3.2, 0.18), t0 + 0.08)
+        for j, note in enumerate(melody):
+            _place(buf, felt(note, beat * 1.35, 0.62), t0 + j * beat)
+    # Final C major, no new melody, so the tune resolves and stops.
+    end = len(bars) * 4 * beat
+    for freq, vel in ((261.63, 0.5), (329.63, 0.38), (392.00, 0.34), (523.25, 0.42)):
+        _place(buf, felt(freq, 1.5, vel), end)
+        _place(buf, pad(freq, 1.6, vel * 0.45), end)
+    peak = np.max(np.abs(buf)) or 1
+    return _fade_out(buf / peak * 0.9, 0.45)
+
+
 def celebration_jingle():
     """Short major flourish for the prize card. Original, no percussion."""
     buf = [0.0] * int(SR * 2.2)
@@ -267,6 +326,20 @@ def celebration_jingle():
 def main():
     """Rewrite the theme only. Sound effects stay as they are unless --sfx is passed."""
     import sys
+    if '--cues' in sys.argv:
+        music = ROOT / 'public' / 'music'
+        tmp = ROOT / 'scripts' / '.tmp-audio'
+        music.mkdir(parents=True, exist_ok=True)
+        tmp.mkdir(exist_ok=True)
+        for name, samples in {'pet-found': pet_found_fanfare(), 'celebration': celebration_tune()}.items():
+            wav = tmp / f'{name}.wav'
+            write_wav(wav, samples)
+            dest = music / f'{name}.mp3'
+            loudnorm(wav, dest, i_lufs=-18, tp=-2.0, bitrate='160k')
+            with wave.open(str(wav)) as w:
+                seconds = w.getnframes() / SR
+            print(f'{name} {dest.stat().st_size} bytes {seconds:.2f}s')
+        return
     if '--jingle' in sys.argv:
         sfx = ROOT / 'public' / 'sfx'
         tmp = ROOT / 'scripts' / '.tmp-audio'

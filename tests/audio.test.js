@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DUCK, LINES, createAudio, musicLevel, normalise, voiceUrl } from '../src/audio.js';
+import { CUES, DUCK, LINES, createAudio, musicLevel, normalise, voiceUrl } from '../src/audio.js';
 import { CLUE_LINE, cluePicture } from '../src/clues.js';
 import { JOBS } from '../src/data.js';
 
@@ -12,6 +12,13 @@ describe('audio buses', () => {
     expect(musicLevel(s, false)).toBeCloseTo(0.5);
     expect(musicLevel(s, true)).toBeCloseTo(0.5 * DUCK);
     expect(musicLevel({ ...s, musicOn: false }, true)).toBe(0);
+    expect(musicLevel(s, false, true)).toBe(0);
+    expect(musicLevel(s, true, true)).toBe(0);
+  });
+
+  it('names the pet-found fanfare and the celebration tune', () => {
+    expect(CUES['pet-found']).toBe('./music/pet-found.mp3');
+    expect(CUES.celebration).toBe('./music/celebration.mp3');
   });
 
   it('falls back to an audio element and stays quiet when the file will not play', async () => {

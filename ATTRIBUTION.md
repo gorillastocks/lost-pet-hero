@@ -24,6 +24,8 @@ Original sounds written for this game and released **CC0 1.0** (public domain). 
 | File | What it is | License | Source |
 |---|---|---|---|
 | `public/music/title-theme.mp3` | Calm forest bed, 66 BPM, about 72 seconds. Felt piano and soft pad on Cmaj7–Am7–Fmaj7–G6, quiet birds and a faint breeze. Around −22 LUFS so the voice stays clearer. | CC0 1.0 | `scripts/make_audio.py` in this repo |
+| `public/music/pet-found.mp3` | 4-second rising C-major fanfare when a lost pet is calmed. Around −18 LUFS. | CC0 1.0 | `scripts/make_audio.py` |
+| `public/music/celebration.mp3` | About 13 seconds of bouncy reunion music, ending on a C chord. Around −18 LUFS. | CC0 1.0 | `scripts/make_audio.py` |
 | `public/sfx/tap.mp3` | Short two-note pop | CC0 1.0 | `scripts/make_audio.py` |
 | `public/sfx/heart-pop.mp3` | Three-note chime | CC0 1.0 | `scripts/make_audio.py` |
 | `public/sfx/sparkle.mp3` | Rising sparkle | CC0 1.0 | `scripts/make_audio.py` |

@@ -24,12 +24,17 @@ export function normalise(o) {
   };
 }
 
-/** Music bus level. While a voice line is playing the theme drops to 45%. */
-export function musicLevel(settings, speaking) {
+/** Music bus level. Voice ducks the theme to 45%. A victory cue pauses it. */
+export function musicLevel(settings, speaking, themeHeld = false) {
   const s = normalise(settings);
-  if (!s.musicOn || s.musicVol <= 0) return 0;
+  if (!s.musicOn || s.musicVol <= 0 || themeHeld) return 0;
   return s.musicVol * (speaking ? DUCK : 1);
 }
+
+export const CUES = {
+  'pet-found': './music/pet-found.mp3',
+  celebration: './music/celebration.mp3',
+};
 
 export function voiceUrl(id) { return `./voice/${id}.mp3`; }
 export function sfxUrl(name) { return `./sfx/${name}.mp3`; }
@@ -60,7 +65,7 @@ export function createAudio(deps = {}) {
   let voiceSrc = null, voiceTok = 0, unlocked = false, sceneOn = false, loadedSfx = false;
   let voiceEl = null, pendingVoice = null, silentUrl = null, keepAlive = null;
   const buffers = {}, loading = {}, lastPlayed = {};
-  let current = null, musicTok = 0;
+  let current = null, musicTok = 0, cueGain = null, cueSrc = null, cueUntil = 0, cueTok = 0;
   const forceHtml = !!deps.forceHtml;
 
   function fetchBuffer(url) {
@@ -84,7 +89,8 @@ export function createAudio(deps = {}) {
     const setG = (node, value, time) => { try { node.gain.setTargetAtTime(value, t, time); } catch { /* ignore */ } };
     setG(sfxGain, settings.sfxOn ? settings.sfxVol : 0, 0.02);
     setG(voiceGain, settings.voiceOn ? settings.voiceVol : 0, 0.02);
-    setG(musicGain, musicLevel(settings, speaking()), 0.08);
+    const held = themeHeld();
+    setG(musicGain, musicLevel(settings, speaking(), held), held ? 0.06 : 0.35);
   }
 
   function set(patch) {
@@ -122,6 +128,44 @@ export function createAudio(deps = {}) {
         current = { name: 'theme', src, gain: g };
       } catch { /* a bad buffer stays silent */ }
     });
+  }
+
+  function themeHeld() { return !!(ctx && ctx.currentTime < cueUntil); }
+
+  function stopCue() {
+    const src = cueSrc; cueSrc = null;
+    if (!src) return;
+    try { src.onended = null; src.stop(); } catch { /* already stopped */ }
+  }
+
+  /** Play a one-shot music cue and pause the forest bed until it finishes. */
+  function playCue(name) {
+    const url = CUES[name];
+    if (!url || !ctx || !unlocked || !settings.musicOn || settings.musicVol <= 0 || ctx.state !== 'running') return false;
+    const tok = ++cueTok;
+    stopCue();
+    fetchBuffer(url).then((buf) => {
+      if (tok !== cueTok || !buf || !ctx || ctx.state !== 'running') return;
+      try {
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const g = ctx.createGain();
+        g.gain.value = 1;
+        src.connect(g); g.connect(cueGain);
+        const now = ctx.currentTime;
+        cueUntil = now + buf.duration + 0.05;
+        src.onended = () => {
+          if (cueSrc !== src || tok !== cueTok) return;
+          cueSrc = null;
+          cueUntil = ctx.currentTime;
+          applyVolumes();
+        };
+        src.start();
+        cueSrc = src;
+        applyVolumes();
+      } catch { /* a bad buffer stays silent */ }
+    });
+    return true;
   }
 
   function setScene(on) { sceneOn = !!on; syncMusic(); }
@@ -291,8 +335,8 @@ export function createAudio(deps = {}) {
     if (!AC) return;
     try {
       ctx = new AC();
-      sfxGain = ctx.createGain(); musicGain = ctx.createGain(); voiceGain = ctx.createGain();
-      sfxGain.connect(ctx.destination); musicGain.connect(ctx.destination); voiceGain.connect(ctx.destination);
+      sfxGain = ctx.createGain(); musicGain = ctx.createGain(); voiceGain = ctx.createGain(); cueGain = ctx.createGain();
+      sfxGain.connect(ctx.destination); musicGain.connect(ctx.destination); voiceGain.connect(ctx.destination); cueGain.connect(ctx.destination);
       applyVolumes();
       const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
       s.buffer = b; s.connect(ctx.destination); s.start(0);
@@ -320,7 +364,7 @@ export function createAudio(deps = {}) {
 
   return {
     get settings() { return settings; },
-    set, setScene, play, playVoice, line, whenEnded, stopVoice, unlock, install, gesture,
+    set, setScene, play, playCue, playVoice, line, whenEnded, stopVoice, unlock, install, gesture,
     get unlocked() { return unlocked; },
     get speaking() { return speaking(); },
   };
