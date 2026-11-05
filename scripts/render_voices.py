@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Earlier flat Kokoro renderer. The approved voices use scripts/kgen_final.py.
 
-That script is af_bella at speed 1.12, with a Praat PSOLA +4 semitone
+That script is af_bella at speed 1.00, with a Praat PSOLA +4 semitone
 rise on sentences that end in ?. See scripts/voice-settings.json.
 This file can still render a flat take (no question rise) if you pass flags.
 
@@ -106,7 +106,7 @@ def render(settings):
     lines = json.loads(LINES.read_text())
     overrides = settings.get('overrides') or {}
     voice = settings.get('voice') or 'af_bella'
-    speed = float(settings.get('speed', 1.12))
+    speed = float(settings.get('speed', 1.00))
     pitch = float(settings.get('pitch_semitones', 0))
     blend = parse_blend(settings.get('blend') or '')
     pipeline = KPipeline(lang_code='a')

@@ -1,6 +1,6 @@
 {
   "voice": "af_bella",
-  "speed": 1.12,
+  "speed": 1.00,
   "pitch_rise_semitones": 4,
   "pitch_rise_on": "sentences ending in ?",
   "method": "Praat PSOLA, formant-preserved, over the last ~0.45s of voiced speech",

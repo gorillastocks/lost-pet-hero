@@ -13,7 +13,7 @@ The spoken lines are AI-generated with [Kokoro-82M](https://huggingface.co/hexgr
 
 - Model license: Apache-2.0. https://github.com/hexgrad/kokoro and https://huggingface.co/hexgrad/Kokoro-82M
 - Words: `src/lines.json` (original). Files: `public/voice/*.mp3`, same ids as that file.
-- How they were made: `scripts/kgen_final.py`. Kokoro speaks each sentence at speed 1.12. Sentences that end in `?` get a +4 semitone rise (Praat PSOLA, formants kept) over the last ~0.45 seconds, then loudness is set to −16 LUFS with a true-peak ceiling of −1.5 dBTP. Those settings are recorded in `scripts/voice-settings.json`.
+- How they were made: `scripts/kgen_final.py`. Kokoro speaks each sentence at speed 1.00. Sentences that end in `?` get a +4 semitone rise (Praat PSOLA, formants kept) over the last ~0.45 seconds, then loudness is set to −16 LUFS with a true-peak ceiling of −1.5 dBTP. Those settings are recorded in `scripts/voice-settings.json`.
 - Words on screen stay in `src/lines.json`. Re-render with `python3 scripts/kgen_final.py`.
 - Pronunciation help: [eSpeak NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0) was used only while rendering. The game does not ship eSpeak.
 

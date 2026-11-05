@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Final Lost Pet Hero voice renderer (Kokoro af_bella, speed 1.12, variant A)
+"""Final Lost Pet Hero voice renderer (Kokoro af_bella, speed 1.00, variant A)
 + rising question intonation via Praat/parselmouth PSOLA pitch-tier manipulation.
 
 Usage (from the repo root):
@@ -17,7 +17,7 @@ import parselmouth
 from parselmouth.praat import call
 
 SR = 24000
-VOICE, SPEED = 'af_bella', 1.12
+VOICE, SPEED = 'af_bella', 1.00
 PAUSE_SENT, PAUSE_LINE = 0.25, 0.5
 TAIL_S = 0.45            # glide length (s)
 RISE_EXP = 1.5           # ramp shape: u**RISE_EXP (keeps rising until the very end)

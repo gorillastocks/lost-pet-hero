@@ -1,0 +1,4 @@
+voice: af_bella
+speed: 1.00
+pitch_rise_semitones: 4
+PSOLA formant-preserved
