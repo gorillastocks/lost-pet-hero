@@ -12,12 +12,18 @@ export async function passHero(page) {
   if (await go.isVisible().catch(() => false)) await go.click();
 }
 
+export async function dismissTutorial(page) {
+  const later = page.locator('#btn-tutorial-later');
+  if (await later.count() && await later.isVisible().catch(() => false)) await later.click();
+}
+
 export async function start(page, difficulty = 'easy') {
   await page.goto(`./?debug=1&instant=1`);
   await page.locator('#btn-tap-play').click({ force: true });
   await passHero(page);
   await page.click(`#diff-${difficulty}`);
   await page.click('#btn-play');
+  await dismissTutorial(page);
 }
 
 export async function dismissClue(page) {

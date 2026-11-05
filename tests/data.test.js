@@ -6,8 +6,10 @@ import {
 
 describe('content tables', () => {
   it('has three lost jobs and matching animals', () => {
-    expect(JOBS).toHaveLength(3);
-    for (const job of JOBS) {
+    const jobs = JOBS.filter((job) => !job.tutorial);
+    expect(jobs).toHaveLength(3);
+    expect(JOBS.some((job) => job.id === 'pebble')).toBe(true);
+    for (const job of jobs) {
       const animal = animalById(job.animalId);
       expect(animal.role).toBe('lost');
       expect(job.itemId).toBeTruthy();

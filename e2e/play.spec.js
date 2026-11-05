@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { answerGate, dismissClue, passHero, start, tapTile, timeATreat, trackErrors } from './helpers.js';
+import { answerGate, dismissClue, dismissTutorial, passHero, start, tapTile, timeATreat, trackErrors } from './helpers.js';
 
 test('title, settings, and three picture jobs', async ({ page }) => {
   const errors = trackErrors(page);
@@ -17,6 +17,7 @@ test('title, settings, and three picture jobs', async ({ page }) => {
   await expect(page.locator('#btn-dev-unlock')).toHaveCount(0);
   await page.click('#btn-settings-back');
   await page.click('#btn-play');
+  await dismissTutorial(page);
   const fit = await page.evaluate(() => {
     const cards = [...document.querySelectorAll('button.job')];
     return cards.map((el, i, arr) => {
@@ -108,6 +109,7 @@ test('easy shows an idle hint arrow; normal does not', async ({ page }) => {
   await passHero(page);
   await page.click('#diff-normal');
   await page.click('#btn-play');
+  await dismissTutorial(page);
   await page.click('#job-bramble');
   await page.click('#btn-enter');
   await page.waitForTimeout(4500);
@@ -163,6 +165,7 @@ test('a small phone shows every job and the grown-up gate', async ({ page }) => 
   });
   expect(petsIn).toBe(true);
   await page.click('#btn-play');
+  await dismissTutorial(page);
   const jobs = await page.evaluate(() => {
     const app = document.querySelector('#app').getBoundingClientRect();
     const footer = document.querySelector('footer.bar').getBoundingClientRect();
@@ -273,6 +276,7 @@ test('the hero you pick is saved and worn on the map', async ({ page }) => {
   await page.locator('#btn-tap-play').click({ force: true });
   await expect(page.locator('#hero-picker')).toHaveCount(0);
   await page.click('#btn-play');
+  await dismissTutorial(page);
   await page.click('#job-pip');
   await page.click('#btn-enter');
   await expect(page.locator('#world')).toHaveAttribute('data-avatar', 'kai');
@@ -285,4 +289,57 @@ test('the hero you pick is saved and worn on the map', async ({ page }) => {
   await expect(page.locator('#world')).toHaveAttribute('data-avatar', 'fox');
   const again = await page.evaluate(() => JSON.parse(localStorage.getItem('lostpet.settings')).avatar);
   expect(again).toBe('fox');
+});
+
+test('practice rescue is offered once, ignores a wrong tap, and can be replayed', async ({ page }) => {
+  await page.goto('./?debug=1&instant=1');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.locator('#btn-tap-play').click({ force: true });
+  await passHero(page);
+  await page.click('#btn-play');
+  await expect(page.locator('#tutorial-offer')).toBeVisible();
+  await expect(page.locator('h2')).toHaveText('Want a practice rescue?');
+  await page.click('#btn-tutorial-later');
+  await expect(page.locator('#job-pip')).toBeVisible();
+  await expect(page.locator('#job-pebble')).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('lostpet.tutorial')));
+  expect(saved).toEqual({ offered: true, completed: false });
+
+  await page.goto('./?debug=1&instant=1');
+  await page.locator('#btn-tap-play').click({ force: true });
+  await page.click('#btn-play');
+  await expect(page.locator('#tutorial-offer')).toHaveCount(0);
+  await page.click('#btn-title');
+  await page.click('#btn-tutorial-replay');
+  await expect(page.locator('#coach')).toHaveAttribute('data-step', 'hero');
+  await page.click('#coach-got');
+  await page.click('#btn-hero-continue');
+  await expect(page.locator('#job-pebble')).toBeVisible();
+  await page.click('#coach-got');
+  await page.click('#btn-title');
+  await expect(page.locator('#job-pebble')).toBeVisible();
+  await page.click('#job-pebble');
+  await page.click('#coach-got');
+  await page.click('#btn-enter');
+  await page.click('#coach-got');
+  const before = await page.locator('#world').getAttribute('data-y');
+  await page.locator('#world').click({ position: { x: 20, y: 20 } });
+  await expect(page.locator('#world')).toHaveAttribute('data-y', before);
+  const center = await page.evaluate(() => window.__lph.tileCenter(5, 14));
+  await page.locator('#world').click({ position: { x: center.x, y: center.y } });
+  await page.click('#coach-got');
+  await page.click('#clue-ok');
+  await page.click('#coach-got');
+  await page.click('#treat-berry');
+  await page.click('#btn-tap');
+  await page.click('#coach-got');
+  const home = await page.evaluate(() => window.__lph.tileCenter(5, 16));
+  await page.locator('#world').click({ position: { x: home.x, y: home.y } });
+  await expect(page.locator('#prize-name')).toHaveText('Pebble sticker');
+  await expect(page.locator('#reward')).toContainText('+10 coins');
+  const done = await page.evaluate(() => JSON.parse(localStorage.getItem('lostpet.tutorial')));
+  expect(done.completed).toBe(true);
+  await page.click('#btn-town');
+  await expect(page.locator('#stat-left')).toHaveText('Free stories left: 2');
 });

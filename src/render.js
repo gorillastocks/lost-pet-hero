@@ -141,6 +141,9 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
       drawCottage(ctx, cx, cy + tile * 0.08, tile * 1.7, time);
     }
 
+    if (active.glowTile && t.x === active.glowTile.x && t.y === active.glowTile.y) {
+      glowRing(ctx, cx, cy - tile * 0.05, tile * 0.46, time);
+    }
     if (t.x === pos.x && t.y === pos.y) {
       drawAvatar(ctx, normaliseAvatar(state.avatar), cx, cy - tile * 0.28 + bob, tile * 1.45, 'map', job.itemId);
     }

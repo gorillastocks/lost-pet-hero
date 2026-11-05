@@ -51,12 +51,14 @@ export function pickWild(owned, rng = Math.random) {
   return pool[i];
 }
 
-export function beginJob(state, jobId, rng = Math.random, { unlocked = false } = {}) {
+export function beginJob(state, jobId, rng = Math.random, options = {}) {
+  const { unlocked = false, tutorial = false } = options;
   const job = jobById(jobId);
   if (!job) return { ok: false, reason: 'missing' };
-  if (!canStartRescue(state, unlocked)) return { ok: false, reason: 'gate' };
-  if (state.completedJobs.includes(jobId)) return { ok: false, reason: 'done' };
-  if (state.active) return { ok: false, reason: 'busy' };
+  if (!tutorial && !canStartRescue(state, unlocked)) return { ok: false, reason: 'gate' };
+  if (!tutorial && state.completedJobs.includes(jobId)) return { ok: false, reason: 'done' };
+  if (state.active && !tutorial) return { ok: false, reason: 'busy' };
+  if (tutorial) state.active = null;
   const trail = createTrail(job);
   const difficulty = state.difficulty;
   state.active = {
@@ -77,7 +79,16 @@ export function beginJob(state, jobId, rng = Math.random, { unlocked = false } =
     wildSnooze: false,
     following: false,
     pending: null,
+    tutorial: tutorial === true,
   };
+  if (tutorial) {
+    state.active.solved = { log: true, picture: true, switches: true, fern: true };
+    state.active.x = 5;
+    state.active.y = 15;
+    state.active.wildId = null;
+    state.active.wildWhere = null;
+    state.active.cluesFound = [];
+  }
   if (!state.active.wildId) state.active.wildWhere = null;
   stamp(state);
   return { ok: true, text: job.grant, itemId: job.itemId };
@@ -265,7 +276,9 @@ export function resolveOffer(state, { target, kind, id, phase }) {
   ensureTreat(active, animal);
   const hearts = target === 'wild' ? active.wildHearts : active.petHearts;
   const treatCount = kind === 'treat' ? (active.treats[id] || 0) : null;
-  const result = judgeOffer({ animal, kind, id, phase, difficulty, hearts, treatCount });
+  const offerPhase = active.tutorial ? 0.5 : phase;
+  const offerDiff = active.tutorial ? { ...difficulty, deduceTreat: false, timingZone: 0.9 } : difficulty;
+  const result = judgeOffer({ animal, kind, id, phase: offerPhase, difficulty: offerDiff, hearts, treatCount });
   if (result.consume && kind === 'treat') active.treats[id] = result.treatCount;
 
   const label = kind === 'treat' ? (treatById(id)?.name || 'snack') : (tuneById(id)?.name || 'tune');
@@ -310,10 +323,12 @@ export function completeReunion(state) {
   const prize = prizeFor(job.id);
   state.coins += reward.coins;
   state.kindness += reward.kindness;
-  state.rescues += 1;
+  if (!active.tutorial) {
+    state.rescues += 1;
+    if (!state.completedJobs.includes(job.id)) state.completedJobs.push(job.id);
+  }
   if (!Array.isArray(state.prizes)) state.prizes = [];
   if (!state.prizes.includes(prize.id)) state.prizes.push(prize.id);
-  if (!state.completedJobs.includes(job.id)) state.completedJobs.push(job.id);
   const summary = {
     jobId: job.id,
     owner: job.owner,
@@ -325,6 +340,7 @@ export function completeReunion(state) {
     totalCoins: state.coins,
     totalKindness: state.kindness,
     prize,
+    tutorial: active.tutorial === true,
   };
   state.active = null;
   stamp(state);
@@ -394,7 +410,7 @@ export function describeJob(job) {
   return { job, animal, hearts: heartsNeeded(animal) };
 }
 
-export const listJobs = () => JOBS.map(describeJob);
+export const listJobs = () => JOBS.filter((job) => !job.tutorial).map(describeJob);
 
 export function playerTile(state) {
   if (!state.active) return null;

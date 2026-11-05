@@ -16,6 +16,7 @@ export const REUNION_MS = 5200;
 /** Cosmetic, treat, or sanctuary decor. One per lost pet, awarded at the cottage. */
 export const PRIZES = {
   pip: { id: 'fish-tin', name: 'Fish biscuit tin', kind: 'treat', blurb: 'A shiny tin of fish biscuits.' },
+  pebble: { id: 'pebble-sticker', name: 'Pebble sticker', kind: 'cosmetic', blurb: 'A shiny sticker for your hero.' },
   bramble: { id: 'cushion', name: 'Cozy cushion', kind: 'decor', blurb: 'A plump cushion for the sanctuary.' },
   luma: { id: 'star-ribbon', name: 'Star ribbon', kind: 'cosmetic', blurb: 'A ribbon that glitters like night.' },
 };
@@ -93,9 +94,37 @@ export const ANIMALS = [
     scared: 'Starling flicks a bright tail and waits.',
     calm: 'Starling settles on your shoulder.',
   },
+  {
+    id: 'pebble', name: 'Pebble', kind: 'turtle', rarity: 'common', role: 'lost',
+    favourite: { kind: 'treat', id: 'berry' },
+    scared: 'Pebble is tucked in a round shell.',
+    calm: 'Pebble peeks out and blinks.',
+  },
 ];
 
 export const JOBS = [
+  {
+    id: 'pebble',
+    animalId: 'pebble',
+    owner: 'Aunt Poppy',
+    ownerHue: 140,
+    itemId: 'stone',
+    card: 'Pebble the turtle slipped under the garden fence.',
+    grant: 'Aunt Poppy lends you Pebble\'s smooth stone. It starts one heart.',
+    reunion: 'Aunt Poppy kneels by the cottage. Pebble bumps her shoe. You brought Pebble home.',
+    pictureOrder: ['paw', 'leaf', 'heart'],
+    switchOrder: ['moon', 'star', 'leaf'],
+    fernIndex: 2,
+    tutorial: true,
+    clues: {
+      paw: 'Round little prints, like a turtle on the path.',
+      log: { easy: 'The log is low enough to step over.', normal: 'The log is tall. A gap waits beside it.' },
+      picture: 'A paw picture.',
+      switches: 'The moon stone.',
+      fern: 'The middle fern.',
+      favourite: 'Berries. Pebble likes berries.',
+    },
+  },
   {
     id: 'pip',
     animalId: 'pip',

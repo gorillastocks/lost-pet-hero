@@ -5,7 +5,7 @@ import {
 } from './data.js';
 import {
   abandonJob, beginJob, dismissPending, freshState, hintTarget,
-  interactHere, journal, listJobs, movePlayer, resolveOffer, statusLine, tapFern, tapLog,
+  describeJob, interactHere, journal, listJobs, movePlayer, resolveOffer, statusLine, tapFern, tapLog,
   tapPicture, tapSwitch,
 } from './game.js';
 import { devUnlockAvailable, isFullGameUnlocked, rescuesLeft, setFullGameUnlocked } from './progress.js';
@@ -19,6 +19,11 @@ import { drawSymbol, paintAnimal } from './art.js';
 import { audio, LINES } from './audio.js';
 import { cluePicture } from './clues.js';
 import { AVATARS, normaliseAvatar, readAvatarChoice } from './avatar.js';
+import {
+  HOME_TILE, START_TILE, TUTORIAL_KEY, WALK_TILE,
+  allows, coachCopy, loadTutorial, nextStep, rememberComplete, rememberOffer, replayTutorial,
+  saveTutorial, shouldOffer,
+} from './tutorial.js';
 import { drawAnimal, drawAvatar, drawCottage, drawHeart, drawOwner } from './art.js';
 
 const FERN_LABELS = ['Sunset side', 'Left of middle', 'Middle', 'Right of middle', 'Sunrise side'];
@@ -40,6 +45,9 @@ export function createApp(root, store) {
   let gateState = freshGate();
   let gateQuestion = null;
   let purchaseAllowed = false;
+  let tutor = null;
+  let tutorRecord = loadTutorial(store);
+  let tutorSnapshot = null;
 
   function loadSettings() {
     try {
@@ -72,6 +80,7 @@ export function createApp(root, store) {
   }
 
   function persist() {
+    if (tutor) return;
     if (!state) return;
     state.settings = { ...settings, difficulty: state.difficulty };
     writeRaw(store, SAVE_KEY, JSON.stringify(state));
@@ -101,6 +110,7 @@ export function createApp(root, store) {
     stopLoops();
     audio.stopVoice();
     root.replaceChildren(node);
+    if (tutor) requestAnimationFrame(syncCoach);
   }
 
   function cornerButtons() {
@@ -248,7 +258,15 @@ export function createApp(root, store) {
     saveSettings();
     if (state) persist();
     sfx('sparkle');
+    if (back === 'tutorial') { startPebbleBoard(); return; }
     leavePicker(back);
+  }
+
+  function startPebbleBoard() {
+    if (!state || state.active?.tutorial) state = freshState(settings.difficulty);
+    state.avatar = normaliseAvatar(settings.avatar);
+    tutor = { step: 'job', ready: false };
+    showTown();
   }
 
   function leavePicker(back) {
@@ -256,6 +274,155 @@ export function createApp(root, store) {
     else if (back === 'trail' && state?.active) showTrail();
     else if (back === 'settings') showSettings(settingsFrom);
     else showMode({ quiet: true });
+  }
+
+  function actionFromEvent(ev) {
+    const el = ev.target?.closest?.bind(ev.target) ? ev.target : null;
+    const hit = (sel) => ev.target?.closest?.(sel);
+    if (hit('#btn-hero-continue')) return 'hero-continue';
+    if (hit('.hero-card')) return 'hero';
+    if (hit('#job-pebble')) return 'job-pebble';
+    if (hit('#btn-enter')) return 'enter-woods';
+    if (hit('#clue-ok')) return 'clue-ok';
+    if (hit('#btn-tap')) return 'tap-green';
+    if (hit('[id^="treat-"]')) return 'treat';
+    if (hit('#world') && state?.active) {
+      const canvas = root.querySelector('#world');
+      const r = canvas.getBoundingClientRect();
+      const px = (ev.clientX - r.left) * (canvas.clientWidth / r.width);
+      const py = (ev.clientY - r.top) * (canvas.clientHeight / r.height);
+      const cam = cameraFor(state.active, canvas.clientWidth, canvas.clientHeight);
+      const tile = tileFromPoint(cam, px, py);
+      return `tile:${tile.x},${tile.y}`;
+    }
+    return 'other';
+  }
+
+  function shakeRing() {
+    const ring = root.querySelector('#coach-ring');
+    if (!ring) return;
+    ring.classList.remove('shake');
+    void ring.offsetWidth;
+    ring.classList.add('shake');
+  }
+
+  function syncCoach() {
+    if (!tutor || !root.querySelector('.screen')) return;
+    let coach = root.querySelector('#coach');
+    let ring = root.querySelector('#coach-ring');
+    if (!coach) {
+      coach = h('div', { id: 'coach' },
+        h('p', { id: 'coach-line' }),
+        h('div', { class: 'coach-actions' },
+          h('button', { id: 'coach-again', type: 'button' }, 'Hear again'),
+          h('button', { id: 'coach-got', class: 'primary', type: 'button' }, 'Got it')));
+      ring = h('div', { id: 'coach-ring', 'aria-hidden': 'true' });
+      root.append(ring, coach);
+      coach.querySelector('#coach-got').onclick = () => {
+        if (!tutor) return;
+        tutor.ready = true;
+        coach.classList.add('away');
+        sfx('tap');
+      };
+      coach.querySelector('#coach-again').onclick = () => {
+        if (!tutor) return;
+        const copy = coachCopy(tutor.step, settings.difficulty === 'easy');
+        say(copy.id);
+      };
+    }
+    const copy = coachCopy(tutor.step, settings.difficulty === 'easy');
+    const line = coach.querySelector('#coach-line');
+    if (line && line.dataset.id !== copy.id) {
+      line.dataset.id = copy.id;
+      line.textContent = copy.text;
+      coach.classList.remove('away');
+      tutor.ready = false;
+      say(copy.id);
+    }
+    coach.dataset.step = tutor.step;
+    placeRing();
+  }
+
+  function placeRing() {
+    const ring = root.querySelector('#coach-ring');
+    if (!ring || !tutor) return;
+    const app = root.getBoundingClientRect();
+    if (tutor.step === 'walk' || tutor.step === 'home') {
+      const canvas = root.querySelector('#world');
+      if (!canvas || !state?.active) { ring.hidden = true; return; }
+      const cam = cameraFor(state.active, canvas.clientWidth, canvas.clientHeight);
+      const goal = tutor.step === 'walk' ? WALK_TILE : HOME_TILE;
+      const p = tileCenter(cam, goal.x, goal.y);
+      const c = canvas.getBoundingClientRect();
+      const size = Math.max(52, cam.tile * 0.9);
+      ring.hidden = false;
+      ring.style.width = `${size}px`;
+      ring.style.height = `${size}px`;
+      ring.style.left = `${c.left - app.left + p.x - size / 2}px`;
+      ring.style.top = `${c.top - app.top + p.y - size / 2}px`;
+      return;
+    }
+    const sel = tutor.step === 'hero' ? '#btn-hero-continue'
+      : tutor.step === 'clue' ? '#clue-ok'
+        : tutor.step === 'calm' ? (root.querySelector('#timing:not([hidden])') ? '#btn-tap' : '#treat-berry')
+          : (root.querySelector('#btn-enter') ? '#btn-enter' : '#job-pebble');
+    const el = root.querySelector(sel);
+    if (!el) { ring.hidden = true; return; }
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    ring.hidden = false;
+    ring.style.left = `${r.left - app.left - pad}px`;
+    ring.style.top = `${r.top - app.top - pad}px`;
+    ring.style.width = `${r.width + pad * 2}px`;
+    ring.style.height = `${r.height + pad * 2}px`;
+  }
+
+  function tutorGuard(ev) {
+    if (!tutor) return;
+    if (ev.target?.closest?.('#coach')) return;
+    const action = actionFromEvent(ev);
+    if (allows(tutor.step, action, tutor.ready)) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    shakeRing();
+  }
+
+  function showTutorialOffer() {
+    tutorRecord = rememberOffer(tutorRecord, 'ask');
+    screen(h('section', { class: 'screen sheet', id: 'tutorial-offer' },
+      h('h2', {}, 'Want a practice rescue?'),
+      h('p', { class: 'lede' }, 'Pebble the turtle is lost. This one does not use a free rescue.'),
+      h('button', { id: 'btn-tutorial-yes', class: 'primary', type: 'button', onclick: () => acceptTutorial() }, 'Yes'),
+      h('button', { id: 'btn-tutorial-later', type: 'button', onclick: () => declineTutorial() }, 'Maybe later')));
+    say('tutor-offer');
+  }
+
+  function acceptTutorial() {
+    tutorRecord = saveTutorial(store, rememberOffer(tutorRecord, 'yes'));
+    sfx('sparkle');
+    beginPractice();
+  }
+
+  function declineTutorial() {
+    tutorRecord = saveTutorial(store, rememberOffer(tutorRecord, 'later'));
+    sfx('tap');
+    newGame();
+  }
+
+  function beginPractice() {
+    tutorSnapshot = state ? JSON.parse(JSON.stringify(state)) : loadSave();
+    tutor = { step: 'hero', ready: false };
+    showPicker('tutorial', { quiet: true });
+  }
+
+  function finishPractice() {
+    tutor = null;
+    tutorRecord = saveTutorial(store, rememberComplete(tutorRecord));
+    state = tutorSnapshot || freshState(settings.difficulty);
+    tutorSnapshot = null;
+    if (state) state.avatar = normaliseAvatar(settings.avatar);
+    persist();
+    showTown();
   }
 
   function paintHeroes() {
@@ -288,7 +455,15 @@ export function createApp(root, store) {
           diffButton('easy'), diffButton('normal')),
         h('p', { class: 'hint', id: 'diff-blurb' }, DIFFICULTY[settings.difficulty].blurb),
         save ? h('button', { id: 'btn-continue', class: 'primary', type: 'button', onclick: () => continueGame(save) }, 'Continue') : null,
-        h('button', { id: 'btn-play', class: save ? '' : 'primary', type: 'button', onclick: () => newGame() }, save ? 'New story' : 'Play'),
+        h('button', { id: 'btn-play', class: save ? '' : 'primary', type: 'button', onclick: () => onPlay() }, save ? 'New story' : 'Play'),
+        h('button', {
+          id: 'btn-tutorial-replay', class: 'quiet', type: 'button',
+          onclick: () => {
+            sfx('tap');
+            tutorRecord = saveTutorial(store, replayTutorial(tutorRecord));
+            beginPractice();
+          },
+        }, 'Replay tutorial'),
       ),
       peekRow(),
     ));
@@ -312,6 +487,12 @@ export function createApp(root, store) {
         say(id === 'easy' ? 'mode-easy' : 'mode-normal');
       },
     }, DIFFICULTY[id].label);
+  }
+
+  function onPlay() {
+    tutorRecord = loadTutorial(store);
+    if (shouldOffer(tutorRecord)) { showTutorialOffer(); return; }
+    newGame();
   }
 
   function newGame() {
@@ -355,7 +536,7 @@ export function createApp(root, store) {
   }
 
   function showTown() {
-    const jobs = listJobs();
+    const jobs = tutor?.step === 'job' ? [describeJob(jobById('pebble'))] : listJobs();
     screen(h('section', { class: 'screen' },
       header(),
       h('div', { class: 'scroll' },
@@ -375,7 +556,7 @@ export function createApp(root, store) {
       paintAnimal(canvas, canvas.dataset.kind, canvas.dataset.mood || 'scared');
     }
     paintHeroes();
-    say('jobboard-intro');
+    if (!tutor) say('jobboard-intro');
   }
 
   function jobCard(job, animal) {
@@ -402,6 +583,14 @@ export function createApp(root, store) {
       toast('Finish the search you already started.');
       return;
     }
+    if (tutor?.step === 'job' && id === 'pebble') {
+      if (!state) state = freshState(settings.difficulty);
+      state.avatar = normaliseAvatar(settings.avatar);
+      const practice = beginJob(state, 'pebble', () => 0, { tutorial: true, unlocked: true });
+      if (!practice.ok) return;
+      showGift(practice.text);
+      return;
+    }
     if (state.active?.jobId === id) { showTrail(); return; }
     if (!rescuesLeft(state, unlocked())) { openPurchaseGate('town'); return; }
     const started = beginJob(state, id, Math.random, { unlocked: unlocked() });
@@ -420,11 +609,18 @@ export function createApp(root, store) {
       h('canvas', { id: 'gift-art', 'data-kind': animal.kind, width: '220', height: '160' }),
       h('h2', {}, job.owner),
       h('p', { class: 'lede', id: 'gift-copy' }, text),
-      h('p', {}, `You are carrying ${job.itemId === 'scarf' ? 'the red scarf' : job.itemId === 'ball' ? 'the squeaky ball' : 'the silver bell'}. It starts one heart.`),
-      h('button', { id: 'btn-enter', class: 'primary', onclick: () => { sfx('sparkle'); showTrail(); } }, 'Into Wildwood'),
+      h('p', {}, `You are carrying ${job.itemId === 'scarf' ? 'the red scarf' : job.itemId === 'ball' ? 'the squeaky ball' : job.itemId === 'stone' ? "Pebble's smooth stone" : 'the silver bell'}. It starts one heart.`),
+      h('button', {
+        id: 'btn-enter', class: 'primary', type: 'button',
+        onclick: () => {
+          sfx('sparkle');
+          if (tutor?.step === 'job') tutor = { step: 'walk', ready: false };
+          showTrail();
+        },
+      }, 'Into Wildwood'),
     ));
     paintAnimal(root.querySelector('#gift-art'), animal.kind, 'scared');
-    say(`job-${job.id}`);
+    if (!state.active?.tutorial) say(`job-${job.id}`);
   }
 
   function showTrail() {
@@ -523,11 +719,24 @@ export function createApp(root, store) {
     const canvas = h('canvas', { width: '320', height: '150', 'aria-hidden': 'true' });
     const card = h('div', { class: 'cluepic', id: 'clue-card', role: 'dialog', 'aria-label': LINES[pic.line] || 'Clue' },
       canvas,
-      h('button', { id: 'clue-ok', class: 'primary', type: 'button', onclick: () => card.remove() }, 'OK'));
+      h('button', {
+        id: 'clue-ok', class: 'primary', type: 'button',
+        onclick: () => {
+          card.remove();
+          if (tutor?.step === 'clue' && state?.active) {
+            tutor = { step: 'calm', ready: false };
+            state.active.petWhere = 'den';
+            state.active.petHearts = 1;
+            state.active.following = false;
+            showCalm('pet');
+          }
+        },
+      }, 'OK'));
     root.querySelector('.trail')?.append(card);
     paintClue(canvas, pic);
     sfx('sparkle');
-    say(pic.line);
+    if (!tutor) say(pic.line);
+    else syncCoach();
   }
 
   function paint(time) {
@@ -544,7 +753,9 @@ export function createApp(root, store) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawWorld(ctx, w, hgt, state, { x: state.active.x, y: state.active.y }, time);
     state.avatar = normaliseAvatar(settings.avatar);
+    state.active.glowTile = tutor?.step === 'walk' ? WALK_TILE : tutor?.step === 'home' ? HOME_TILE : null;
     canvas.dataset.avatar = state.avatar;
+    if (tutor) placeRing();
     canvas.dataset.x = String(state.active.x);
     canvas.dataset.y = String(state.active.y);
     canvas.dataset.following = state.active.following ? '1' : '0';
@@ -613,12 +824,21 @@ export function createApp(root, store) {
       if (!state) return;
       if (afterClues) {
         const last = afterClues.clues[afterClues.clues.length - 1];
+        if (tutor?.step === 'walk') tutor = { step: 'clue', ready: false };
         showClueCard(last.id);
       } else if (before === (state.active?.cluesFound.length || before)) {
         toast('');
       }
       persist();
-      if (reunion) { sfx('reunion-fanfare'); showReunion(reunion.reunion); return; }
+      if (reunion) {
+        if (reunion.reunion?.tutorial) {
+          tutor = null;
+          tutorRecord = saveTutorial(store, rememberComplete(tutorRecord));
+        }
+        sfx('reunion-fanfare');
+        showReunion(reunion.reunion);
+        return;
+      }
       if (!root.querySelector('#world')) return;
       refreshTrail();
       if (arrived) maybeOpen(arrived);
@@ -840,6 +1060,14 @@ export function createApp(root, store) {
       if (result.done && target === 'pet') {
         sfx('heart-pop');
         audio.playCue('pet-found');
+        if (tutor?.step === 'calm' && state.active) {
+          state.active.following = true;
+          state.active.x = START_TILE.x;
+          state.active.y = START_TILE.y;
+          tutor = { step: 'home', ready: false };
+          showTrail();
+          return;
+        }
         showTrail();
         toast(`${animal.name} will follow you home.`);
         say('calm-success');
@@ -870,6 +1098,7 @@ export function createApp(root, store) {
         const btn = root.querySelector('#btn-tap');
         if (btn) btn.textContent = hot ? 'Now!' : 'Tap in the green';
       }
+      if (tutor) placeRing();
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -961,7 +1190,10 @@ export function createApp(root, store) {
       h('div', { id: 'prize-box', class: INSTANT ? 'open' : '' },
         h('p', { id: 'prize-name' }, summary.prize?.name || 'A gift'),
         h('p', { class: 'hint', id: 'prize-blurb' }, summary.prize?.blurb || '')),
-      h('button', { id: 'btn-town', class: 'primary', type: 'button', onclick: () => showTown() }, 'Back to Emberhollow'),
+      h('button', {
+        id: 'btn-town', class: 'primary', type: 'button',
+        onclick: () => (summary.tutorial ? finishPractice() : showTown()),
+      }, 'Back to Emberhollow'),
     ));
     const line = LINES[`reunion-${summary.animalId}`] ? `reunion-${summary.animalId}` : 'reunion-cheer';
     say(line);
@@ -1223,6 +1455,9 @@ export function createApp(root, store) {
   }
 
   saveSettings();
+  root.addEventListener('pointerdown', tutorGuard, true);
+  root.addEventListener('click', tutorGuard, true);
+
   window.addEventListener('pointerdown', () => {
     audio.unlock();
     if (root.querySelector('#world')) armIdle();

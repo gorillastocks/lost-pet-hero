@@ -216,6 +216,27 @@ export function drawAnimal(ctx, kind, x, y, s, mood = 'scared') {
     ctx.moveTo(x + s * 0.16, y + s * 0.2);
     ctx.quadraticCurveTo(x + s * 0.4, y + s * 0.3, x + s * 0.3, y - s * 0.05);
     ctx.stroke();
+  } else if (kind === 'turtle') {
+    ctx.fillStyle = '#7DCAA8';
+    ctx.beginPath();
+    ctx.ellipse(x, y + s * 0.16, s * 0.28, s * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(2, s * 0.04);
+    ctx.stroke();
+    ctx.fillStyle = '#D8FFF0';
+    ctx.beginPath();
+    ctx.ellipse(x, y + s * 0.18, s * 0.14, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#F6D7B8';
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.02, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    eye(ctx, x - s * 0.05, y - s * 0.02, s, mood);
+    eye(ctx, x + s * 0.05, y - s * 0.02, s, mood);
+    mouth(ctx, x, y + s * 0.04, s * 0.8, mood);
+    return;
   } else if (kind === 'bird') {
     ctx.fillStyle = '#4aa3c7';
     ctx.beginPath();
