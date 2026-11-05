@@ -2,7 +2,7 @@
 // The UI draws. This module only changes plain data, so tests can play a whole rescue.
 
 import {
-  DIFFICULTY, JOBS, REWARDS, WILD_KINDNESS, animalById, jobById, treatById, tuneById,
+  DIFFICULTY, JOBS, REWARDS, WILD_KINDNESS, animalById, jobById, prizeFor, treatById, tuneById,
   heartsNeeded, favouriteName, clueText,
 } from './data.js';
 import {
@@ -20,6 +20,7 @@ export function freshState(difficulty = 'easy') {
     difficulty: DIFFICULTY[difficulty] ? difficulty : 'easy',
     coins: 0,
     kindness: 0,
+    prizes: [],
     rescues: 0,
     completedJobs: [],
     sanctuary: [],
@@ -280,7 +281,7 @@ export function resolveOffer(state, { target, kind, id, phase }) {
   if (result.done && target === 'pet') {
     active.following = true;
     active.petWhere = 'follow';
-    doneEvent = { type: 'follow', text: `${animal.name} pads along behind you. The town gate is south.` };
+    doneEvent = { type: 'follow', text: `${animal.name} pads along behind you. The cottage is south.` };
   } else if (result.done && target === 'wild') {
     if (!state.sanctuary.includes(active.wildId)) state.sanctuary.push(active.wildId);
     state.kindness += WILD_KINDNESS;
@@ -306,9 +307,12 @@ export function completeReunion(state) {
   const job = jobById(active.jobId);
   const animal = animalById(job.animalId);
   const reward = REWARDS[animal.rarity];
+  const prize = prizeFor(job.id);
   state.coins += reward.coins;
   state.kindness += reward.kindness;
   state.rescues += 1;
+  if (!Array.isArray(state.prizes)) state.prizes = [];
+  if (!state.prizes.includes(prize.id)) state.prizes.push(prize.id);
   if (!state.completedJobs.includes(job.id)) state.completedJobs.push(job.id);
   const summary = {
     jobId: job.id,
@@ -320,6 +324,7 @@ export function completeReunion(state) {
     kindness: reward.kindness,
     totalCoins: state.coins,
     totalKindness: state.kindness,
+    prize,
   };
   state.active = null;
   stamp(state);
@@ -347,7 +352,7 @@ export function hintSpeech(state) {
   if (target.id && difficulty.clueIds.includes(target.id) && !active.cluesFound.includes(target.id)) {
     return clueText(job, target.id, difficulty.id);
   }
-  if (active.following) return 'The way home is south, to the town gate.';
+  if (active.following) return 'The way home is south, to the cottage.';
   if (active.petWhere === 'hidden') return `${animalById(job.animalId).name} hid nearby. Hearts are still there.`;
   if (!active.solved.log) return difficulty.simplePuzzles ? 'The log is low enough to climb.' : 'Find a way past the log.';
   if (!active.solved.picture) return 'The picture stone is ahead.';
@@ -375,7 +380,7 @@ export function statusLine(state) {
   if (!active) return 'Pick a picture on the job board.';
   const job = jobById(active.jobId);
   const animal = animalById(job.animalId);
-  if (active.following) return `${animal.name} is following you. Walk south to the town gate.`;
+  if (active.following) return `${animal.name} is following you. Walk south to the cottage.`;
   if (active.petWhere === 'hidden') return `${animal.name} hid nearby. The hearts you earned are safe.`;
   if (!active.solved.log) return 'A fallen log crosses the trail.';
   if (!active.solved.picture) return 'A picture stone blocks the way north.';

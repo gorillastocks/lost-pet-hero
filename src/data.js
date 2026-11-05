@@ -11,6 +11,29 @@ export const REWARDS = {
 
 export const WILD_KINDNESS = 1;
 
+export const REUNION_MS = 5200;
+
+/** Cosmetic, treat, or sanctuary decor. One per lost pet, awarded at the cottage. */
+export const PRIZES = {
+  pip: { id: 'fish-tin', name: 'Fish biscuit tin', kind: 'treat', blurb: 'A shiny tin of fish biscuits.' },
+  bramble: { id: 'cushion', name: 'Cozy cushion', kind: 'decor', blurb: 'A plump cushion for the sanctuary.' },
+  luma: { id: 'star-ribbon', name: 'Star ribbon', kind: 'cosmetic', blurb: 'A ribbon that glitters like night.' },
+};
+
+export function prizeFor(jobId) {
+  return PRIZES[jobId] || PRIZES.pip;
+}
+
+/** Where the reunion animation is. `t` is milliseconds since it started. */
+export function reunionPhase(t) {
+  const u = Math.min(1, Math.max(0, t / REUNION_MS));
+  if (u < 0.12) return 'wait';
+  if (u < 0.55) return 'run';
+  if (u < 0.72) return 'hug';
+  if (u < 1) return 'hearts';
+  return 'card';
+}
+
 export const FREE_RESCUES = 2;
 
 export const FULL_GAME_PRICE = '$9.99';

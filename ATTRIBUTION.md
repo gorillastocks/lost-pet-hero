@@ -28,6 +28,7 @@ Original sounds written for this game and released **CC0 1.0** (public domain). 
 | `public/sfx/heart-pop.mp3` | Three-note chime | CC0 1.0 | `scripts/make_audio.py` |
 | `public/sfx/sparkle.mp3` | Rising sparkle | CC0 1.0 | `scripts/make_audio.py` |
 | `public/sfx/reunion-fanfare.mp3` | Short major fanfare | CC0 1.0 | `scripts/make_audio.py` |
+| `public/sfx/reunion-jingle.mp3` | Cheerful prize jingle, about 2 seconds | CC0 1.0 | `scripts/make_audio.py` |
 
 CC0 text: https://creativecommons.org/publicdomain/zero/1.0/
 

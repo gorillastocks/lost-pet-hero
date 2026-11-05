@@ -246,6 +246,123 @@ export function drawAnimal(ctx, kind, x, y, s, mood = 'scared') {
   mouth(ctx, x, y + s * 0.12, s, mood);
 }
 
+/** Cozy cottage. Reads as a house even when `s` is about one map tile. */
+export function drawCottage(ctx, x, y, s, time = 0) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  const ink = Math.max(2, s * 0.045);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = ink;
+  ctx.fillStyle = '#C6E28A';
+  ctx.beginPath();
+  ctx.ellipse(x, y + s * 0.34, s * 0.52, s * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.46, y + s * 0.28);
+  ctx.lineTo(x + s * 0.46, y + s * 0.28);
+  ctx.stroke();
+  for (const dx of [-0.4, -0.16, 0.22, 0.42]) {
+    ctx.beginPath();
+    ctx.moveTo(x + dx * s, y + s * 0.38);
+    ctx.lineTo(x + dx * s, y + s * 0.18);
+    ctx.stroke();
+  }
+  for (const [dx, col] of [[-0.32, '#FF8FC7'], [0.34, '#FFD84D'], [-0.18, '#FF8A3D']]) {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(x + dx * s, y + s * 0.32, Math.max(2.5, s * 0.045), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#FFF6EA';
+  rr(ctx, x - s * 0.26, y - s * 0.08, s * 0.52, s * 0.36, s * 0.08);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#FF7EB3';
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.38, y - s * 0.04);
+  ctx.lineTo(x, y - s * 0.42);
+  ctx.lineTo(x + s * 0.38, y - s * 0.04);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#E7B48A';
+  rr(ctx, x + s * 0.1, y - s * 0.4, s * 0.1, s * 0.16, 3);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  const puff = Math.sin(time / 420) * s * 0.03;
+  ctx.beginPath();
+  ctx.arc(x + s * 0.16, y - s * 0.48 + puff, s * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+  for (const dx of [-0.12, 0.12]) {
+    ctx.fillStyle = '#FFE27A';
+    rr(ctx, x + dx * s - s * 0.055, y - s * 0.02, s * 0.11, s * 0.09, s * 0.03);
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#C4783A';
+  ctx.beginPath();
+  ctx.arc(x, y + s * 0.1, s * 0.08, Math.PI, 0);
+  ctx.lineTo(x + s * 0.08, y + s * 0.24);
+  ctx.lineTo(x - s * 0.08, y + s * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#F6D7A8';
+  ctx.beginPath();
+  ctx.arc(x + s * 0.03, y + s * 0.16, s * 0.012, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#5EB7F2';
+  rr(ctx, x + s * 0.34, y + s * 0.1, s * 0.14, s * 0.1, 3);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.41, y + s * 0.2);
+  ctx.lineTo(x + s * 0.41, y + s * 0.36);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A grown-up standing in the cottage doorway. */
+export function drawOwner(ctx, x, y, s, skin = '#F3C39A') {
+  ctx.save();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(2, s * 0.05);
+  drawShadow(ctx, x, y + s * 0.42, s * 0.8);
+  ctx.fillStyle = '#4A3B6B';
+  rr(ctx, x - s * 0.1, y + s * 0.16, s * 0.08, s * 0.18, 3);
+  rr(ctx, x + s * 0.02, y + s * 0.16, s * 0.08, s * 0.18, 3);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#7FD3FF';
+  rr(ctx, x - s * 0.16, y - s * 0.08, s * 0.32, s * 0.28, s * 0.1);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(x, y - s * 0.22, s * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x - s * 0.05, y - s * 0.24, s * 0.035, 0, Math.PI * 2);
+  ctx.arc(x + s * 0.05, y - s * 0.24, s * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(x - s * 0.05, y - s * 0.23, s * 0.016, 0, Math.PI * 2);
+  ctx.arc(x + s * 0.05, y - s * 0.23, s * 0.016, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y - s * 0.16, s * 0.05, 0.2 * Math.PI, 0.8 * Math.PI);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawTree(ctx, x, y, s, n) {
   const lean = ((n * 17) % 7) - 3;
   ctx.fillStyle = '#6b4228';

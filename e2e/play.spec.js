@@ -87,6 +87,8 @@ test('easy rescue: clues, simple puzzles, one timing tap, reunion', async ({ pag
   for (const y of [5, 9, 13, 16]) await tapTile(page, 5, y);
   await expect(page.locator('#reunion-copy')).toContainText('home');
   await expect(page.locator('#reward')).toContainText('+10 coins');
+  await expect(page.locator('#prize-name')).toHaveText('Fish biscuit tin');
+  await expect(page.locator('#stars .star.on')).toHaveCount(1);
   await page.click('#btn-town');
   await expect(page.locator('#stat-coins')).toHaveText('10 coins');
   await expect(page.locator('#job-pip')).toContainText('Home safe');

@@ -66,10 +66,15 @@ describe('a full rescue', () => {
     expect(state.active.treats.berry).toBe(5);
 
     const gate = movePlayer(state, 5, 16);
-    expect(gate.events.some((e) => e.type === 'reunion')).toBe(true);
+    const home = gate.events.find((e) => e.type === 'reunion');
+    expect(home).toBeTruthy();
+    expect(home.reunion.coins).toBe(10);
+    expect(home.reunion.kindness).toBe(1);
+    expect(home.reunion.prize).toMatchObject({ id: 'fish-tin', name: 'Fish biscuit tin' });
     expect(state.rescues).toBe(1);
     expect(state.coins).toBe(10);
     expect(state.kindness).toBe(1);
+    expect(state.prizes).toEqual(['fish-tin']);
     expect(state.completedJobs).toEqual(['pip']);
     expect(state.active).toBeNull();
   });

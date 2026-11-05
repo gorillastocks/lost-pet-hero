@@ -1,7 +1,7 @@
 import { h } from './dom.js';
 import {
-  DIFFICULTY, FULL_GAME_PRICE, FREE_RESCUES, TREATS, TUNES, animalById, jobById,
-  heartsNeeded, kindnessTitle, pictureChoices,
+  DIFFICULTY, FULL_GAME_PRICE, FREE_RESCUES, REUNION_MS, TREATS, TUNES, animalById, jobById,
+  heartsNeeded, kindnessTitle, pictureChoices, prizeFor, reunionPhase,
 } from './data.js';
 import {
   abandonJob, beginJob, dismissPending, freshState, hintTarget,
@@ -19,7 +19,7 @@ import { drawSymbol, paintAnimal } from './art.js';
 import { audio, LINES } from './audio.js';
 import { cluePicture } from './clues.js';
 import { AVATARS, normaliseAvatar, readAvatarChoice } from './avatar.js';
-import { drawAvatar } from './art.js';
+import { drawAnimal, drawAvatar, drawCottage, drawHeart, drawOwner } from './art.js';
 
 const FERN_LABELS = ['Sunset side', 'Left of middle', 'Middle', 'Right of middle', 'Sunrise side'];
 const params = new URLSearchParams(globalThis.location?.search || '');
@@ -874,21 +874,110 @@ export function createApp(root, store) {
     raf = requestAnimationFrame(loop);
   }
 
+  const OWNER_SKIN = { 'Nana Moss': '#F3C39A', 'Coach Wren': '#C4886A', 'Keeper Sol': '#8C5A3C' };
+
   function showReunion(summary) {
+    if (INSTANT) { showCelebration(summary); return; }
     const animal = animalById(summary.animalId);
-    screen(h('section', { class: 'screen sheet' },
-      h('canvas', { id: 'reunion-art', width: '240', height: '170' }),
-      h('h2', {}, 'Home'),
-      h('p', { class: 'lede', id: 'reunion-copy' }, summary.text),
-      h('p', { class: 'reward', id: 'reward' }, `+${summary.coins} coins    +${summary.kindness} kindness`),
-      h('p', {}, `You have ${summary.totalCoins} coins and ${summary.totalKindness} kindness.`),
-      h('button', { id: 'btn-town', class: 'primary', onclick: () => showTown() }, 'Back to Emberhollow'),
+    const skin = OWNER_SKIN[summary.owner] || '#F3C39A';
+    screen(h('section', { class: 'screen reunion', id: 'reunion-play' },
+      h('canvas', { id: 'reunion-stage', 'aria-label': 'The pet runs home' }),
+      h('button', {
+        id: 'btn-reunion-skip', class: 'quiet', type: 'button',
+        onclick: () => showCelebration(summary),
+      }, 'Skip'),
     ));
-    paintAnimal(root.querySelector('#reunion-art'), animal.kind, 'happy');
-    say('reunion-cheer')?.then?.((started) => {
-      if (!started) return;
-      audio.whenEnded().then(() => { if (root.querySelector('#reunion-copy')) say('reunion-thanks'); });
-    });
+    const canvas = root.querySelector('#reunion-stage');
+    const started = performance.now();
+    let shown = false;
+    const frame = (now) => {
+      if (!root.querySelector('#reunion-play') || shown) return;
+      const phase = reunionPhase(now - started);
+      canvas.dataset.phase = phase;
+      paintHomecoming(canvas, animal.kind, skin, phase, now - started, now);
+      if (phase === 'card') { shown = true; showCelebration(summary); return; }
+      raf = requestAnimationFrame(frame);
+    };
+    canvas.addEventListener('pointerdown', () => { if (!shown) { shown = true; showCelebration(summary); } });
+    raf = requestAnimationFrame(frame);
+  }
+
+  function paintHomecoming(canvas, kind, skin, phase, elapsed, now) {
+    const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+    const w = canvas.clientWidth || 320;
+    const hgt = canvas.clientHeight || 480;
+    if (canvas.width !== Math.floor(w * dpr)) {
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(hgt * dpr);
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sky = ctx.createLinearGradient(0, 0, 0, hgt);
+    sky.addColorStop(0, '#7FD3FF');
+    sky.addColorStop(0.55, '#D7F4FF');
+    sky.addColorStop(1, '#8EE07A');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, hgt);
+    const houseX = w * 0.72;
+    const ground = hgt * 0.62;
+    drawCottage(ctx, houseX, ground, Math.min(w, hgt) * 0.42, now);
+    drawOwner(ctx, houseX - 8, ground + 8, Math.min(w, hgt) * 0.22, skin);
+    const runU = phase === 'wait' ? 0 : phase === 'run'
+      ? Math.min(1, (elapsed - REUNION_MS * 0.12) / (REUNION_MS * 0.43))
+      : 1;
+    const bounce = phase === 'run' ? Math.abs(Math.sin(runU * Math.PI * 4)) * 18 : 0;
+    const petX = w * 0.16 + (houseX - w * 0.28) * runU;
+    if (phase === 'wait' || phase === 'run') {
+      drawAnimal(ctx, kind, petX, ground - bounce, Math.min(w, hgt) * 0.28, 'happy');
+    } else {
+      drawAnimal(ctx, kind, houseX - 28, ground - 4, Math.min(w, hgt) * 0.26, 'happy');
+    }
+    if (phase === 'hearts') {
+      const burst = (elapsed - REUNION_MS * 0.72) / (REUNION_MS * 0.28);
+      for (let i = 0; i < 6; i++) {
+        const rise = Math.max(0, burst - i * 0.08);
+        drawHeart(ctx, houseX - 36 + (i - 2.5) * 28, ground - 40 - rise * 120, 26 + i * 3);
+      }
+    }
+  }
+
+  function showCelebration(summary) {
+    const stars = Math.max(1, Math.min(3, summary.kindness || 1));
+    const bits = [];
+    if (!INSTANT) {
+      for (let i = 0; i < 14; i++) bits.push(h('i', { class: 'bit', style: `--i:${i}` }));
+    }
+    screen(h('section', { class: 'screen sheet reunion-card', id: 'reunion' },
+      h('div', { class: 'confetti', 'aria-hidden': 'true' }, ...bits),
+      h('h2', {}, 'You did it!'),
+      h('p', { class: 'lede', id: 'reunion-copy' }, summary.text),
+      h('p', { class: 'reward', id: 'reward' }, `+${summary.coins} coins`),
+      h('p', { id: 'coin-total' }, `${summary.totalCoins} coins`),
+      h('p', { id: 'kind-line' }, `+${summary.kindness} kindness`),
+      h('div', { id: 'stars', 'aria-label': 'reputation stars' },
+        ...[1, 2, 3].map((n) => h('span', { class: n <= stars ? 'star on' : 'star' }, '★'))),
+      h('div', { id: 'prize-box', class: INSTANT ? 'open' : '' },
+        h('p', { id: 'prize-name' }, summary.prize?.name || 'A gift'),
+        h('p', { class: 'hint', id: 'prize-blurb' }, summary.prize?.blurb || '')),
+      h('button', { id: 'btn-town', class: 'primary', type: 'button', onclick: () => showTown() }, 'Back to Emberhollow'),
+    ));
+    sfx('reunion-jingle');
+    const line = LINES[`reunion-${summary.animalId}`] ? `reunion-${summary.animalId}` : 'reunion-cheer';
+    say(line);
+    if (!INSTANT) {
+      const box = root.querySelector('#prize-box');
+      setTimeout(() => box?.classList.add('open'), 700);
+      const total = root.querySelector('#coin-total');
+      const from = Math.max(0, summary.totalCoins - summary.coins);
+      const start = performance.now();
+      const tick = (now) => {
+        if (!total || !root.querySelector('#reunion')) return;
+        const u = Math.min(1, (now - start) / 900);
+        total.textContent = `${Math.round(from + (summary.totalCoins - from) * u)} coins`;
+        if (u < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
   }
 
   function showSanctuary() {
@@ -1160,6 +1249,7 @@ export function createApp(root, store) {
       const job = jobById('pip');
       showReunion({
         animalId: 'pip', text: job.reunion, coins: 10, kindness: 1, totalCoins: 10, totalKindness: 1,
+        prize: prizeFor('pip'), owner: job.owner,
       });
       return;
     }

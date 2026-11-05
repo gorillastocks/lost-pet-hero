@@ -1,4 +1,4 @@
-import { drawAnimal, drawAvatar, drawSymbol, drawTree } from './art.js';
+import { drawAnimal, drawAvatar, drawCottage, drawSymbol, drawTree } from './art.js';
 import { normaliseAvatar } from './avatar.js';
 import { jobById, animalById } from './data.js';
 import { createTrail, tileAt } from './world.js';
@@ -138,18 +138,7 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
       }
       if (easy && t.opens) glowRing(ctx, cx, cy, tile * 0.4, time);
     } else if (t.kind === 'gate') {
-      ctx.strokeStyle = '#6b4228';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(cx - tile * 0.3, cy + tile * 0.2);
-      ctx.lineTo(cx - tile * 0.3, cy - tile * 0.35);
-      ctx.lineTo(cx + tile * 0.3, cy - tile * 0.35);
-      ctx.lineTo(cx + tile * 0.3, cy + tile * 0.2);
-      ctx.stroke();
-      ctx.fillStyle = '#f2b544';
-      ctx.font = `700 ${Math.floor(tile * 0.22)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('Town', cx, cy - tile * 0.02);
+      drawCottage(ctx, cx, cy + tile * 0.08, tile * 1.7, time);
     }
 
     if (t.x === pos.x && t.y === pos.y) {

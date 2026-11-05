@@ -42,7 +42,7 @@ More detail, including what to do if the bundle id is taken, is in [IOS_BUILD.md
 - Tap the woods to walk. There is no arrow pointing at the pet. Read the clues.
 - Each treat or tune is one tap. Land it in the green. A miss hides the pet nearby, keeps the hearts, and gives the treat back.
 - Common pets need 2 hearts, uncommon 3, rare 4.
-- Walk the calm pet back to the town gate. You earn coins and kindness.
+- Walk the calm pet back to the cottage. You earn coins, kindness, and a prize.
 - A wild pet in the side grove stays in your sanctuary instead.
 - Two rescues are free. The next one asks a grown-up a math question, then shows a **$9.99** full-game card. Nothing is charged. The card is a placeholder.
 

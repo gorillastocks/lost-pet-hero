@@ -7,8 +7,8 @@ import LINES from './lines.json';
 export { LINES };
 export const AUDIO_KEY = 'lostpet.audio.v1';
 export const DUCK = 0.45;
-export const SFX = ['tap', 'heart-pop', 'sparkle', 'reunion-fanfare'];
-const SFX_LEVEL = { tap: 0.55, 'heart-pop': 0.85, sparkle: 0.7, 'reunion-fanfare': 0.9 };
+export const SFX = ['tap', 'heart-pop', 'sparkle', 'reunion-fanfare', 'reunion-jingle'];
+const SFX_LEVEL = { tap: 0.55, 'heart-pop': 0.85, sparkle: 0.7, 'reunion-fanfare': 0.9, 'reunion-jingle': 0.8 };
 export const DEFAULTS = { sfxOn: true, sfxVol: 0.85, musicOn: true, musicVol: 0.5, voiceOn: true, voiceVol: 1 };
 
 const clamp01 = (v, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d; };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ANIMALS, JOBS, TREATS, TUNES, DIFFICULTY, HEARTS_BY_RARITY, PICTURES, SWITCH_SYMBOLS,
-  animalById, heartsNeeded, clueText, pictureChoices, kindnessTitle,
+  REUNION_MS, animalById, heartsNeeded, clueText, pictureChoices, kindnessTitle, reunionPhase,
 } from '../src/data.js';
 
 describe('content tables', () => {
@@ -58,6 +58,16 @@ describe('content tables', () => {
       for (const id of DIFFICULTY.normal.clueIds) expect(clueText(job, id, 'normal').length).toBeGreaterThan(8);
       expect(clueText(job, 'log', 'easy')).not.toBe(clueText(job, 'log', 'normal'));
     }
+  });
+
+  it('a reunion plays for a few seconds, then the reward card', () => {
+    expect(REUNION_MS).toBeGreaterThanOrEqual(4000);
+    expect(REUNION_MS).toBeLessThanOrEqual(6000);
+    expect(reunionPhase(0)).toBe('wait');
+    expect(reunionPhase(REUNION_MS * 0.3)).toBe('run');
+    expect(reunionPhase(REUNION_MS * 0.6)).toBe('hug');
+    expect(reunionPhase(REUNION_MS * 0.85)).toBe('hearts');
+    expect(reunionPhase(REUNION_MS)).toBe('card');
   });
 
   it('kindness titles climb and never go blank', () => {

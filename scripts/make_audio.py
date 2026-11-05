@@ -254,9 +254,30 @@ def sfx_fanfare():
     return buf
 
 
+def celebration_jingle():
+    """Short major flourish for the prize card. Original, no percussion."""
+    buf = [0.0] * int(SR * 2.2)
+    notes = (523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.51)
+    for i, freq in enumerate(notes):
+        mix(buf, tone(freq, 0.36, (1, 0.22, 0.06), 'bell'), i * 0.16)
+        mix(buf, tone(freq / 2, 0.4, (1, 0.12), 'bell'), i * 0.16)
+    return buf
+
+
 def main():
     """Rewrite the theme only. Sound effects stay as they are unless --sfx is passed."""
     import sys
+    if '--jingle' in sys.argv:
+        sfx = ROOT / 'public' / 'sfx'
+        tmp = ROOT / 'scripts' / '.tmp-audio'
+        sfx.mkdir(parents=True, exist_ok=True)
+        tmp.mkdir(exist_ok=True)
+        wav = tmp / 'reunion-jingle.wav'
+        write_wav(wav, celebration_jingle())
+        dest = sfx / 'reunion-jingle.mp3'
+        loudnorm(wav, dest, i_lufs=-16, tp=-1.5)
+        print('jingle', dest.stat().st_size)
+        return
     music = ROOT / 'public' / 'music'
     music.mkdir(parents=True, exist_ok=True)
     tmp = ROOT / 'scripts' / '.tmp-audio'
