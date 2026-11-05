@@ -1,7 +1,12 @@
 {
   "voice": "af_bella",
-  "speed": 1.1,
-  "pitch_semitones": 0,
+  "speed": 1.12,
+  "pitch_rise_semitones": 4,
+  "pitch_rise_on": "sentences ending in ?",
+  "method": "Praat PSOLA, formant-preserved, over the last ~0.45s of voiced speech",
+  "loudnorm": "I=-16 LUFS, TP=-1.5, LRA=11",
+  "renderer": "scripts/kgen_final.py",
+  "variant": "plain",
   "blend": null,
   "overrides": {}
 }

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Render Lost Pet Hero lines with Kokoro-82M (Apache-2.0).
+"""Earlier flat Kokoro renderer. The approved voices use scripts/kgen_final.py.
 
-Interim defaults: voice af_bella, speed 1.1, no pitch shift.
-Pass new settings on the command line or in a JSON file and re-run.
+That script is af_bella at speed 1.12, with a Praat PSOLA +4 semitone
+rise on sentences that end in ?. See scripts/voice-settings.json.
+This file can still render a flat take (no question rise) if you pass flags.
 
 Examples:
   python3 scripts/render_voices.py
@@ -105,7 +106,7 @@ def render(settings):
     lines = json.loads(LINES.read_text())
     overrides = settings.get('overrides') or {}
     voice = settings.get('voice') or 'af_bella'
-    speed = float(settings.get('speed', 1.1))
+    speed = float(settings.get('speed', 1.12))
     pitch = float(settings.get('pitch_semitones', 0))
     blend = parse_blend(settings.get('blend') or '')
     pipeline = KPipeline(lang_code='a')

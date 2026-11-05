@@ -13,8 +13,8 @@ The spoken lines are AI-generated with [Kokoro-82M](https://huggingface.co/hexgr
 
 - Model license: Apache-2.0. https://github.com/hexgrad/kokoro and https://huggingface.co/hexgrad/Kokoro-82M
 - Words: `src/lines.json` (original). Files: `public/voice/*.mp3`, same ids as that file.
-- How they were made: `scripts/render_voices.py`. Speed, pitch in semitones, an optional voice blend, and per-line spoken wording live in `scripts/voice-settings.json`.
-- This published build uses `af_bella` at speed 1.1, pitch 0, no blend, and the words in `src/lines.json`. Re-render with `python3 scripts/render_voices.py` after editing that settings file.
+- How they were made: `scripts/kgen_final.py`. Kokoro speaks each sentence at speed 1.12. Sentences that end in `?` get a +4 semitone rise (Praat PSOLA, formants kept) over the last ~0.45 seconds, then loudness is set to −16 LUFS with a true-peak ceiling of −1.5 dBTP. Those settings are recorded in `scripts/voice-settings.json`.
+- Words on screen stay in `src/lines.json`. Re-render with `python3 scripts/kgen_final.py`.
 - Pronunciation help: [eSpeak NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0) was used only while rendering. The game does not ship eSpeak.
 
 ## Music and sound effects
