@@ -1,14 +1,38 @@
 # Attribution
 
-Lost Pet Hero: Wildwood draws its pictures in the game itself, with canvas and CSS shapes. There are no downloaded sprites, photos, or sound files.
+Lost Pet Hero: Wildwood draws its pictures in the game itself, with canvas and CSS shapes.
+
+## Pictures and fonts
 
 - Art and animation: original plush-toy drawings made for this project. No toy-brand assets or names are used.
 - Fonts: [Fredoka](https://fonts.google.com/specimen/Fredoka), [Baloo 2](https://fonts.google.com/specimen/Baloo+2), and [Nunito](https://fonts.google.com/specimen/Nunito), all SIL Open Font License, self-hosted.
-- Voice, sound effects, and the title theme: original recordings made for this game. The words are in `src/lines.json` and the files are in `public/voice`, `public/sfx`, and `public/music`.
-- Words and puzzle clues: original.
-- Voices for Easy-mode hints: the phone or browser's built-in Web Speech voice. Nothing is recorded or sent to a server by this game.
+
+## Voice
+
+The spoken lines are AI-generated with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (`hexgrad/Kokoro-82M`), voice `af_bella`.
+
+- Model license: Apache-2.0. https://github.com/hexgrad/kokoro and https://huggingface.co/hexgrad/Kokoro-82M
+- Words: `src/lines.json` (original). Files: `public/voice/*.mp3`, same ids as that file.
+- How they were made: `scripts/render_voices.py`. Speed, pitch in semitones, an optional voice blend, and per-line spoken wording live in `scripts/voice-settings.json`.
+- This published build uses `af_bella` at speed 1.1, pitch 0, no blend, and the words in `src/lines.json`. Re-render with `python3 scripts/render_voices.py` after editing that settings file.
+- Pronunciation help: [eSpeak NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0) was used only while rendering. The game does not ship eSpeak.
+
+## Music and sound effects
+
+Original sounds written for this game and released **CC0 1.0** (public domain). Fine for a children's game, including a paid app. No third-party music or effects are included.
+
+| File | What it is | License | Source |
+|---|---|---|---|
+| `public/music/title-theme.mp3` | Cheerful 8-bar loop, 115 BPM | CC0 1.0 | `scripts/make_audio.py` in this repo |
+| `public/sfx/tap.mp3` | Short two-note pop | CC0 1.0 | `scripts/make_audio.py` |
+| `public/sfx/heart-pop.mp3` | Three-note chime | CC0 1.0 | `scripts/make_audio.py` |
+| `public/sfx/sparkle.mp3` | Rising sparkle | CC0 1.0 | `scripts/make_audio.py` |
+| `public/sfx/reunion-fanfare.mp3` | Short major fanfare | CC0 1.0 | `scripts/make_audio.py` |
+
+CC0 text: https://creativecommons.org/publicdomain/zero/1.0/
+
+## App tools
+
 - App shell: [Capacitor](https://capacitorjs.com/) (MIT), including `@capacitor/preferences` for on-device saves.
 - Web build: [Vite](https://vitejs.dev/) (MIT).
 - Tests: [Vitest](https://vitest.dev/) (MIT) and [Playwright](https://playwright.dev/) (Apache-2.0).
-
-No third-party images or music are shipped, so there is nothing else to credit. If that changes, list the work and its license here.

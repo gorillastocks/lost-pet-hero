@@ -9,3 +9,5 @@ ios/App/App/capacitor.config.json
 ios/App/App/config.xml
 .DS_Store
 *.log
+scripts/.tmp-audio/
+scripts/phonemes.txt
