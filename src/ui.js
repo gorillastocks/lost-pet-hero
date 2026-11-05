@@ -1029,8 +1029,38 @@ export function createApp(root, store) {
   }, { capture: true });
   window.addEventListener('keydown', onKey);
 
+  function ensureJob() {
+    if (!state) state = freshState(settings.difficulty);
+    if (!state.active) beginJob(state, 'pip', () => 0, { unlocked: true });
+  }
+
+  // Debug-only jumps so layout checks can open each screen without a full rescue.
+  function preview(which) {
+    if (which === 'title') { titleReady = false; showSplash(); return; }
+    if (which === 'mode') { titleReady = true; showMode({ quiet: true }); return; }
+    if (which === 'gate') { if (!state) state = freshState(settings.difficulty); openSettings('town'); return; }
+    if (which === 'settings') { if (!state) state = freshState(settings.difficulty); showSettings('town'); return; }
+    if (which === 'jobs') { if (!state) state = freshState(settings.difficulty); showTown(); return; }
+    if (which === 'map') { ensureJob(); showTrail(); return; }
+    if (which === 'clues') { ensureJob(); showTrail(); showClueCard('paw'); return; }
+    if (which === 'calm') { ensureJob(); showCalm('pet'); return; }
+    if (which === 'reunion') {
+      ensureJob();
+      const job = jobById('pip');
+      showReunion({
+        animalId: 'pip', text: job.reunion, coins: 10, kindness: 1, totalCoins: 10, totalKindness: 1,
+      });
+      return;
+    }
+    if (which === 'sanctuary') {
+      if (!state) state = freshState(settings.difficulty);
+      state.sanctuary = ['dew', 'fern', 'star'];
+      showSanctuary();
+    }
+  }
+
   const api = {
-    showTitle, showTown, showTrail,
+    showTitle, showTown, showTrail, preview,
     get state() { return state; },
     get settings() { return settings; },
     fresh: () => freshState(settings.difficulty),

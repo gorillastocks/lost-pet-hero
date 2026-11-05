@@ -133,6 +133,54 @@ test('a wild pet can be calmed into the sanctuary', async ({ page }) => {
   await expect(page.locator('#world')).toBeVisible();
 });
 
+test('a small phone shows every job and the grown-up gate', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./?debug=1&instant=1');
+  await page.locator('#btn-tap-play').click({ force: true });
+  const petsIn = await page.evaluate(() => {
+    const app = document.querySelector('#app').getBoundingClientRect();
+    return [...document.querySelectorAll('.peek')].every((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top >= app.top - 1 && r.bottom <= app.bottom + 1 && r.left >= app.left - 1 && r.right <= app.right + 1;
+    });
+  });
+  expect(petsIn).toBe(true);
+  await page.click('#btn-play');
+  const jobs = await page.evaluate(() => {
+    const app = document.querySelector('#app').getBoundingClientRect();
+    const footer = document.querySelector('footer.bar').getBoundingClientRect();
+    return [...document.querySelectorAll('button.job')].map((el) => {
+      const c = el.getBoundingClientRect();
+      const title = el.querySelector('.jobtitle').getBoundingClientRect();
+      const desc = el.querySelector('.jobdesc').getBoundingClientRect();
+      const inside = (r) => r.top >= c.top - 1 && r.bottom <= c.bottom + 1 && r.left >= c.left - 1 && r.right <= c.right + 1;
+      return {
+        id: el.id,
+        inside: inside(title) && inside(desc),
+        onScreen: c.top >= app.top - 1 && c.bottom <= footer.top + 1 && c.left >= app.left - 1 && c.right <= app.right + 1,
+      };
+    });
+  });
+  expect(jobs.map((c) => c.id)).toEqual(['job-pip', 'job-bramble', 'job-luma']);
+  for (const card of jobs) {
+    expect(card.inside, card.id).toBe(true);
+    expect(card.onScreen, card.id).toBe(true);
+  }
+  const labelFits = await page.locator('#btn-grownups').evaluate((el) => el.scrollWidth <= el.clientWidth + 2);
+  expect(labelFits).toBe(true);
+  await page.click('#btn-settings');
+  const gate = await page.evaluate(() => {
+    const app = document.querySelector('#app').getBoundingClientRect();
+    const inside = (sel) => {
+      const r = document.querySelector(sel).getBoundingClientRect();
+      return r.height > 20 && r.top >= app.top - 1 && r.bottom <= app.bottom + 1 && r.left >= app.left - 1 && r.right <= app.right + 1;
+    };
+    return { head: inside('#gate h2'), back: inside('#btn-gate-back'), digit: inside('[data-digit="5"]') };
+  });
+  expect(gate).toEqual({ head: true, back: true, digit: true });
+});
+
 test('a purchase sheet stays hidden until the grown-up gate is passed', async ({ page }) => {
   await page.goto('./?debug=1&instant=1');
   await page.locator('#btn-tap-play').click({ force: true });
