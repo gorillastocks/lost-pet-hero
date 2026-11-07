@@ -134,8 +134,13 @@ function ears(ctx, x, y, s, color, droop) {
   ctx.stroke();
 }
 
-export function drawAnimal(ctx, kind, x, y, s, mood = 'scared') {
-  drawShadow(ctx, x, y + s * 0.34, s * 1.1);
+export function drawAnimal(ctx, kind, x, y, s, mood = 'scared', lift = 0) {
+  const air = Math.max(0, lift);
+  const shadow = Math.max(0.68, 1.1 - air / Math.max(8, s));
+  drawShadow(ctx, x, y + s * 0.34, s * shadow);
+  ctx.save();
+  ctx.translate(0, -air);
+  try {
   ctx.lineJoin = 'round';
   if (kind === 'kitten') {
     ears(ctx, x, y, s, '#e8923a', false);
@@ -265,6 +270,9 @@ export function drawAnimal(ctx, kind, x, y, s, mood = 'scared') {
   ctx.arc(x, y + s * 0.1, s * 0.035, 0, Math.PI * 2);
   ctx.fill();
   mouth(ctx, x, y + s * 0.12, s, mood);
+  } finally {
+    ctx.restore();
+  }
 }
 
 /** Cozy cottage. Reads as a house even when `s` is about one map tile. */

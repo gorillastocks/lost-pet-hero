@@ -112,7 +112,8 @@ function pickupClues(state, trail, steps) {
   return found;
 }
 
-export function movePlayer(state, x, y) {
+/** Path the hero is allowed to walk. Does not change the save. */
+export function planMove(state, x, y) {
   const active = state.active;
   if (!active) return { ok: false, reason: 'no-job' };
   if (active.pending) return { ok: false, reason: 'pending' };
@@ -121,11 +122,19 @@ export function movePlayer(state, x, y) {
   if (!isWalkable(trail, active.solved, x, y)) {
     const near = pathNear(trail, active.solved, { x: active.x, y: active.y }, dest);
     if (!near) return { ok: false, reason: 'blocked' };
-    return finishMove(state, trail, near, dest);
+    return { ok: true, path: near, interact: dest };
   }
   const path = pathTo(trail, active.solved, { x: active.x, y: active.y }, dest);
   if (!path) return { ok: false, reason: 'blocked' };
-  return finishMove(state, trail, path, null);
+  return { ok: true, path, interact: null };
+}
+
+export function movePlayer(state, x, y, planned = null) {
+  const plan = planned?.path ? planned : planMove(state, x, y);
+  if (!plan.ok) return plan;
+  if (!state.active) return { ok: false, reason: 'no-job' };
+  const trail = createTrail(jobById(state.active.jobId));
+  return finishMove(state, trail, plan.path, plan.interact ?? null);
 }
 
 function finishMove(state, trail, path, interactTile) {

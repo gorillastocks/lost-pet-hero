@@ -5,7 +5,7 @@ import {
 } from './data.js';
 import {
   abandonJob, beginJob, dismissPending, freshState, hintTarget,
-  describeJob, interactHere, journal, listJobs, movePlayer, resolveOffer, statusLine, tapFern, tapLog,
+  describeJob, interactHere, journal, listJobs, movePlayer, planMove, resolveOffer, statusLine, tapFern, tapLog,
   tapPicture, tapSwitch,
 } from './game.js';
 import { devUnlockAvailable, isFullGameUnlocked, rescuesLeft, setFullGameUnlocked } from './progress.js';
@@ -13,7 +13,8 @@ import { cancelGate, cooldownLeft, freshGate, isLocked, makeQuestion, submitAtte
 import { presentPurchase, restorePurchases } from './store.js';
 import { SAVE_KEY, SETTINGS_KEY, readRaw, writeRaw } from './storage.js';
 import { cameraFor, drawWorld, tileCenter, tileFromPoint } from './render.js';
-import { createTrail } from './world.js';
+import { createTrail, tileAt } from './world.js';
+import { followerPose, samplePath, QUEUE_LIMIT, STEP_MS } from './motion.js';
 import { inZone, zoneBand } from './calm.js';
 import { drawSymbol, paintAnimal } from './art.js';
 import { audio, LINES } from './audio.js';
@@ -36,6 +37,9 @@ export function createApp(root, store) {
   let raf = 0;
   let idleTimer = 0;
   let walking = false;
+  let walk = null;
+  let moveQueue = [];
+  let petAt = null;
   let question = null;
   let gatePassed = false;
   let settingsFrom = 'title';
@@ -97,6 +101,9 @@ export function createApp(root, store) {
     raf = 0;
     clearTimeout(idleTimer);
     walking = false;
+    walk = null;
+    moveQueue = [];
+    petAt = null;
   }
 
   function toast(text) {
@@ -291,7 +298,7 @@ export function createApp(root, store) {
       const r = canvas.getBoundingClientRect();
       const px = (ev.clientX - r.left) * (canvas.clientWidth / r.width);
       const py = (ev.clientY - r.top) * (canvas.clientHeight / r.height);
-      const cam = cameraFor(state.active, canvas.clientWidth, canvas.clientHeight);
+      const cam = cameraFor(focusPos(), canvas.clientWidth, canvas.clientHeight);
       const tile = tileFromPoint(cam, px, py);
       return `tile:${tile.x},${tile.y}`;
     }
@@ -350,7 +357,7 @@ export function createApp(root, store) {
     if (tutor.step === 'walk' || tutor.step === 'home') {
       const canvas = root.querySelector('#world');
       if (!canvas || !state?.active) { ring.hidden = true; return; }
-      const cam = cameraFor(state.active, canvas.clientWidth, canvas.clientHeight);
+      const cam = cameraFor(focusPos(), canvas.clientWidth, canvas.clientHeight);
       const goal = tutor.step === 'walk' ? WALK_TILE : HOME_TILE;
       const p = tileCenter(cam, goal.x, goal.y);
       const c = canvas.getBoundingClientRect();
@@ -653,13 +660,15 @@ export function createApp(root, store) {
       const r = canvas.getBoundingClientRect();
       const px = (ev.clientX - r.left) * (canvas.clientWidth / r.width);
       const py = (ev.clientY - r.top) * (canvas.clientHeight / r.height);
-      const cam = cameraFor(state.active, canvas.clientWidth, canvas.clientHeight);
+      const cam = cameraFor(focusPos(), canvas.clientWidth, canvas.clientHeight);
       const tile = tileFromPoint(cam, px, py);
       go(tile.x, tile.y, tile);
     });
     refreshTrail();
     const loop = (t) => {
       if (!root.querySelector('#world')) return;
+      if (walk && t >= walk.start + walk.ms) finishWalk();
+      if (!root.querySelector('#world') || !state?.active) return;
       paint(t || performance.now());
       raf = requestAnimationFrame(loop);
     };
@@ -673,7 +682,8 @@ export function createApp(root, store) {
     const d = map[ev.key];
     if (!d) return;
     ev.preventDefault();
-    go(state.active.x + d[0], state.active.y + d[1], null);
+    const base = cursor();
+    go(base.x + d[0], base.y + d[1], null);
   }
 
   function journalList() {
@@ -751,7 +761,9 @@ export function createApp(root, store) {
     }
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawWorld(ctx, w, hgt, state, { x: state.active.x, y: state.active.y }, time);
+    const pose = walkPose(time);
+    drawWorld(ctx, w, hgt, state, { x: pose.x, y: pose.y }, time, pose.motion);
+    canvas.dataset.moving = walk ? '1' : '0';
     state.avatar = normaliseAvatar(settings.avatar);
     state.active.glowTile = tutor?.step === 'walk' ? WALK_TILE : tutor?.step === 'home' ? HOME_TILE : null;
     canvas.dataset.avatar = state.avatar;
@@ -760,6 +772,7 @@ export function createApp(root, store) {
     canvas.dataset.y = String(state.active.y);
     canvas.dataset.following = state.active.following ? '1' : '0';
     const arrow = root.querySelector('#hint-arrow');
+    if (arrow && walk) arrow.hidden = true;
     canvas.dataset.hint = arrow && !arrow.hidden ? '1' : '0';
   }
 
@@ -806,61 +819,167 @@ export function createApp(root, store) {
     }, diff.idleMs);
   }
 
+  function focusPos() {
+    if (walk && state?.active) {
+      const t = Math.min(1, (performance.now() - walk.start) / walk.ms);
+      return samplePath(walk.path, t);
+    }
+    return { x: state.active.x, y: state.active.y };
+  }
+
+  function cursor() {
+    if (moveQueue.length) return moveQueue[moveQueue.length - 1].end;
+    if (walk) return walk.path[walk.path.length - 1];
+    return { x: state.active.x, y: state.active.y };
+  }
+
+  function idlePet() {
+    const a = state.active;
+    const trail = createTrail(jobById(a.jobId));
+    if (tileAt(trail, a.x, a.y + 1)) return { x: a.x, y: a.y + 1, hop: 0 };
+    return { x: a.x + 0.35, y: a.y, hop: 0 };
+  }
+
+  function walkPose(time) {
+    if (!walk) {
+      return {
+        x: state.active.x,
+        y: state.active.y,
+        motion: { walking: false, bob: 0, dirx: 0, follow: state.active.following ? petAt : null },
+      };
+    }
+    const t = Math.min(1, ((time || performance.now()) - walk.start) / walk.ms);
+    const sample = samplePath(walk.path, t);
+    const follow = walk.rest ? followerPose(walk.path, t, walk.rest) : null;
+    return {
+      x: sample.x,
+      y: sample.y,
+      motion: { walking: true, bob: Math.sin(sample.frac * Math.PI), dirx: sample.dirx, follow },
+    };
+  }
+
   function go(x, y, tapped) {
-    if (!state?.active || walking) return;
+    if (!state?.active) return;
     armIdle();
-    const before = state.active.cluesFound.length;
-    const result = movePlayer(state, x, y);
-    if (!result.ok) {
+    if (walk) {
+      enqueue(x, y, tapped);
+      return;
+    }
+    beginWalk(x, y, tapped);
+  }
+
+  function enqueue(x, y, tapped) {
+    if (moveQueue.length >= QUEUE_LIMIT) return;
+    const from = cursor();
+    const ghost = { ...state, active: { ...state.active, x: from.x, y: from.y } };
+    const plan = planMove(ghost, x, y);
+    if (!plan.ok) {
       toast('Trees are in the way.');
       return;
     }
+    if (plan.path.length < 2) return;
+    const end = plan.path[plan.path.length - 1];
+    moveQueue.push({ x, y, tapped, end: { x: end.x, y: end.y } });
+  }
+
+  function beginWalk(x, y, tapped) {
+    const plan = planMove(state, x, y);
+    if (!plan.ok) {
+      toast('Trees are in the way.');
+      pumpQueue();
+      return;
+    }
+    if (INSTANT || plan.path.length < 2) {
+      const before = state.active.cluesFound.length;
+      const result = movePlayer(state, x, y);
+      if (settle(result, tapped, before)) pumpQueue();
+      return;
+    }
+    const rest = state.active.following ? (petAt || idlePet()) : null;
+    walk = {
+      path: plan.path,
+      interact: plan.interact,
+      rest,
+      start: performance.now(),
+      ms: (plan.path.length - 1) * STEP_MS,
+      x,
+      y,
+      tapped,
+    };
+    walking = true;
+    root.querySelector('#actions')?.replaceChildren();
+  }
+
+  function pumpQueue() {
+    if (walk || !moveQueue.length || !state?.active || !root.querySelector('#world')) return;
+    const next = moveQueue.shift();
+    beginWalk(next.x, next.y, next.tapped);
+  }
+
+  function finishWalk() {
+    const done = walk;
+    walk = null;
+    walking = false;
+    if (!done || !state?.active) return;
+    if (done.rest) petAt = followerPose(done.path, 1, done.rest);
+    const before = state.active.cluesFound.length;
+    const result = movePlayer(state, done.x, done.y, { ok: true, path: done.path, interact: done.interact });
+    if (!result.ok) {
+      toast('Trees are in the way.');
+      pumpQueue();
+      return;
+    }
+    if (settle(result, done.tapped, before)) pumpQueue();
+  }
+
+  function settle(result, tapped, before) {
+    walking = false;
+    if (!state) return false;
     const afterClues = result.events?.find((e) => e.type === 'clues');
     const reunion = result.events?.find((e) => e.type === 'reunion');
-    const arrived = tapped;
-    walking = !INSTANT && result.path && result.path.length > 2;
-    const finish = () => {
-      walking = false;
-      if (!state) return;
-      if (afterClues) {
-        const last = afterClues.clues[afterClues.clues.length - 1];
-        if (tutor?.step === 'walk') tutor = { step: 'clue', ready: false };
-        showClueCard(last.id);
-      } else if (before === (state.active?.cluesFound.length || before)) {
-        toast('');
+    if (afterClues || reunion) moveQueue.length = 0;
+    if (afterClues) {
+      const last = afterClues.clues[afterClues.clues.length - 1];
+      if (tutor?.step === 'walk') tutor = { step: 'clue', ready: false };
+      showClueCard(last.id);
+    } else if (before === (state.active?.cluesFound.length || before)) {
+      toast('');
+    }
+    persist();
+    if (reunion) {
+      if (reunion.reunion?.tutorial) {
+        tutor = null;
+        tutorRecord = saveTutorial(store, rememberComplete(tutorRecord));
       }
-      persist();
-      if (reunion) {
-        if (reunion.reunion?.tutorial) {
-          tutor = null;
-          tutorRecord = saveTutorial(store, rememberComplete(tutorRecord));
-        }
-        sfx('reunion-fanfare');
-        showReunion(reunion.reunion);
-        return;
-      }
-      if (!root.querySelector('#world')) return;
-      refreshTrail();
-      if (arrived) maybeOpen(arrived);
-    };
-    if (!walking) finish();
-    else setTimeout(finish, Math.min(700, (result.path.length - 1) * 70));
+      sfx('reunion-fanfare');
+      showReunion(reunion.reunion);
+      return false;
+    }
+    if (!root.querySelector('#world')) return false;
+    refreshTrail();
+    if (tapped && maybeOpen(tapped)) {
+      moveQueue.length = 0;
+      return false;
+    }
+    return !afterClues;
   }
 
   function maybeOpen(tile) {
-    if (!state?.active) return;
+    if (!state?.active) return false;
     const trail = createTrail(jobById(state.active.jobId));
     const kind = trail.tiles[tile.y]?.[tile.x]?.kind;
-    if (!kind) return;
-    if ((kind === 'log' || kind === 'crawl') && !state.active.solved.log) showLog();
-    else if ((kind === 'picture' || kind === 'pictureDoor') && !state.active.solved.picture) showPictures();
-    else if (kind === 'switch' && !state.active.solved.switches) showSwitches();
-    else if (kind === 'fern' && !state.active.solved.fern) showFerns();
-    else if (kind === 'den' && state.active.petWhere === 'den') showCalm('pet');
-    else if (kind === 'grove' && state.active.wildWhere === 'grove' && !state.active.following) showCalm('wild');
+    if (!kind) return false;
+    if ((kind === 'log' || kind === 'crawl') && !state.active.solved.log) { showLog(); return true; }
+    if ((kind === 'picture' || kind === 'pictureDoor') && !state.active.solved.picture) { showPictures(); return true; }
+    if (kind === 'switch' && !state.active.solved.switches) { showSwitches(); return true; }
+    if (kind === 'fern' && !state.active.solved.fern) { showFerns(); return true; }
+    if (kind === 'den' && state.active.petWhere === 'den') { showCalm('pet'); return true; }
+    if (kind === 'grove' && state.active.wildWhere === 'grove' && !state.active.following) { showCalm('wild'); return true; }
+    return false;
   }
 
   function doAction(id) {
+    if (walk) return;
     sfx('tap');
     audio.unlock();
     if (id === 'climb') applyPuzzle(tapLog(state, 'climb'));
@@ -1505,7 +1624,7 @@ export function createApp(root, store) {
     tileCenter(x, y) {
       const canvas = root.querySelector('#world');
       if (!canvas || !state?.active) return null;
-      const cam = cameraFor(state.active, canvas.clientWidth, canvas.clientHeight);
+      const cam = cameraFor(focusPos(), canvas.clientWidth, canvas.clientHeight);
       return tileCenter(cam, x, y);
     },
     unlocked,
