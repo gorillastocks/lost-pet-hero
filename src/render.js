@@ -31,7 +31,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-export function drawWorld(ctx, cssW, cssH, state, pos, time) {
+export function drawWorld(ctx, cssW, cssH, state, pos, time, motion = {}) {
   const active = state.active;
   const job = jobById(active.jobId);
   const animal = animalById(job.animalId);
@@ -81,9 +81,27 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
       sprites.push({ y, x, t });
     }
   }
+  const lift = motion.walking ? (motion.bob || 0) * tile * 0.2 : bob;
+  const lean = motion.walking ? (motion.dirx || 0) * tile * 0.05 : 0;
+  sprites.push({ y: pos.y + 0.01, x: pos.x, actor: 'hero', lift, lean });
+  const follow = active.following ? (motion.follow || idleFollow(trail, pos)) : null;
+  if (follow) sprites.push({ y: follow.y + 0.01, x: follow.x, actor: 'pet', follow });
   sprites.sort((a, b) => a.y - b.y || a.x - b.x);
 
-  for (const { t } of sprites) {
+  for (const item of sprites) {
+    if (item.actor === 'hero') {
+      const c = tileCenter(cam, pos.x, pos.y);
+      drawAvatar(ctx, normaliseAvatar(state.avatar), c.x + item.lean, c.y - tile * 0.28 - item.lift, tile * 1.45, 'map', job.itemId);
+      continue;
+    }
+    if (item.actor === 'pet') {
+      const pet = item.follow;
+      const c = tileCenter(cam, pet.x, pet.y);
+      const hop = (pet.hop || 0) * tile * 0.62;
+      drawAnimal(ctx, animal.kind, c.x, c.y - tile * 0.1, tile * 0.7, 'happy', hop);
+      continue;
+    }
+    const { t } = item;
     const px = ox + t.x * tile;
     const py = oy + t.y * tile;
     const cx = px + tile / 2;
@@ -144,9 +162,6 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
     if (active.glowTile && t.x === active.glowTile.x && t.y === active.glowTile.y) {
       glowRing(ctx, cx, cy - tile * 0.05, tile * 0.46, time);
     }
-    if (t.x === pos.x && t.y === pos.y) {
-      drawAvatar(ctx, normaliseAvatar(state.avatar), cx, cy - tile * 0.28 + bob, tile * 1.45, 'map', job.itemId);
-    }
     const wild = animalById(active.wildId);
     if (wild && active.wildWhere === 'grove' && t.kind === 'grove') {
       drawAnimal(ctx, wild.kind, cx, cy - tile * 0.2, tile * 0.7, 'scared');
@@ -160,17 +175,14 @@ export function drawWorld(ctx, cssW, cssH, state, pos, time) {
     if (active.petWhere === 'hidden' && t.x === trail.hideSpot.x && t.y === trail.hideSpot.y) {
       drawAnimal(ctx, animal.kind, cx - 8, cy - tile * 0.1, tile * 0.62, 'scared');
     }
-    if (active.following && t.x === pos.x && t.y === pos.y + 1) {
-      drawAnimal(ctx, animal.kind, cx, cy - tile * 0.15, tile * 0.7, 'happy');
-    }
-  }
-
-  if (active.following && !tileAt(trail, pos.x, pos.y + 1)) {
-    const c = tileCenter(cam, pos.x, pos.y);
-    drawAnimal(ctx, animal.kind, c.x + tile * 0.35, c.y - tile * 0.2, tile * 0.65, 'happy');
   }
 
   return cam;
+}
+
+function idleFollow(trail, pos) {
+  if (tileAt(trail, pos.x, pos.y + 1)) return { x: pos.x, y: pos.y + 1, hop: 0 };
+  return { x: pos.x + 0.35, y: pos.y, hop: 0 };
 }
 
 function activeClueVisible(active, id) {

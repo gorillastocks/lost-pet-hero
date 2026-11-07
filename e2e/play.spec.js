@@ -343,3 +343,31 @@ test('practice rescue is offered once, ignores a wrong tap, and can be replayed'
   await page.click('#btn-town');
   await expect(page.locator('#stat-left')).toHaveText('Free stories left: 2');
 });
+
+test('the hero walks onto the tapped square instead of jumping there', async ({ page }) => {
+  await page.goto('./?debug=1');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => {
+    window.__lph.preview('map');
+    const active = window.__lph.state.active;
+    active.solved.log = true;
+    active.following = true;
+    active.petWhere = 'follow';
+  });
+  await page.waitForFunction(() => (document.querySelector('#world')?.clientWidth || 0) > 50);
+  await page.evaluate(() => {
+    const canvas = document.querySelector('#world');
+    const p = window.__lph.tileCenter(5, 10);
+    const r = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true,
+      clientX: r.left + p.x, clientY: r.top + p.y,
+    }));
+  });
+  await expect(page.locator('#world')).toHaveAttribute('data-moving', '1');
+  await expect(page.locator('#world')).toHaveAttribute('data-y', '15');
+  await expect(page.locator('#world')).toHaveAttribute('data-y', '10');
+  await expect(page.locator('#world')).toHaveAttribute('data-moving', '0');
+  await expect(page.locator('#world')).toHaveAttribute('data-following', '1');
+});
